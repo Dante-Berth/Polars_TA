@@ -2,6 +2,8 @@ import math
 
 import polars as pl
 
+from polars_ta._internal import log_return
+
 
 def garman_klass_volatility(
     open_price: str, high: str, low: str, close: str, window: int = 20
@@ -72,8 +74,7 @@ def rolling_sortino_ratio(
 
 def historical_volatility(close: str, window: int = 21) -> pl.Expr:
     """Annualized Historical Volatility (Close-to-Close)"""
-    c = pl.col(close)
-    log_ret = (c / c.shift(1)).log()
+    log_ret = log_return(pl.col(close))
 
     # Standard deviation of log returns * sqrt(252 trading days)
     hv = log_ret.rolling_std(window_size=window) * math.sqrt(252)

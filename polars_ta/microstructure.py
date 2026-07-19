@@ -11,6 +11,13 @@ import math
 import numpy as np
 import polars as pl
 
+from polars_ta._internal import (
+    as_expr,
+    log_return,
+    rolling_beta,
+    rolling_cov,
+)
+
 # Numba is an optional accelerator (`pip install polars-ta-lib[speed]`). When
 # present, the sequential VPIN volume-bucketing loop is JIT-compiled; when
 # absent we fall back to the identical pure-Python loop. Output is byte-for-byte
@@ -86,14 +93,10 @@ def roll_spread(close: str | pl.Expr, window: int = 20) -> pl.Expr:
     is reported as null when the covariance is non-negative, since the
     model's premise doesn't hold there.
     """
-    close = pl.col(close) if isinstance(close, str) else close
+    close = as_expr(close)
     delta_p = close.diff(1)
-    delta_p_lag = delta_p.shift(1)
 
-    cov = (
-        (delta_p - delta_p.rolling_mean(window_size=window))
-        * (delta_p_lag - delta_p_lag.rolling_mean(window_size=window))
-    ).rolling_mean(window_size=window)
+    cov = rolling_cov(delta_p, delta_p.shift(1), window)
 
     spread = pl.when(cov < 0).then(2.0 * (-cov).sqrt()).otherwise(None)
     return spread.alias(f"roll_spread_{window}")
@@ -110,22 +113,14 @@ def kyle_lambda(
     move — thinner, less liquid conditions. This is the workhorse price-impact
     measure for execution/market-making desks sizing orders against liquidity.
     """
-    close = pl.col(close) if isinstance(close, str) else close
-    volume = pl.col(volume) if isinstance(volume, str) else volume
+    close = as_expr(close)
+    volume = as_expr(volume)
 
     delta_p = close.diff(1)
     signed_volume = volume * delta_p.sign()
 
-    cov = (
-        (delta_p - delta_p.rolling_mean(window_size=window))
-        * (signed_volume - signed_volume.rolling_mean(window_size=window))
-    ).rolling_mean(window_size=window)
-    var = (
-        (signed_volume - signed_volume.rolling_mean(window_size=window)) ** 2
-    ).rolling_mean(window_size=window)
-
-    safe_var = pl.when(var == 0).then(None).otherwise(var)
-    return (cov / safe_var).alias(f"kyle_lambda_{window}")
+    # Slope of price change on signed volume: cov(sv, dp) / var(sv).
+    return rolling_beta(delta_p, signed_volume, window).alias(f"kyle_lambda_{window}")
 
 
 def hasbrouck_lambda(
@@ -138,23 +133,17 @@ def hasbrouck_lambda(
     typical square-root law of market impact, which is closer to what
     execution desks actually observe versus Kyle's linear assumption.
     """
-    close = pl.col(close) if isinstance(close, str) else close
-    volume = pl.col(volume) if isinstance(volume, str) else volume
+    close = as_expr(close)
+    volume = as_expr(volume)
 
-    log_ret = (close / close.shift(1)).log()
+    log_ret = log_return(close)
     dollar_volume = close * volume
     signed_sqrt_dv = dollar_volume.sqrt() * log_ret.sign()
 
-    cov = (
-        (log_ret - log_ret.rolling_mean(window_size=window))
-        * (signed_sqrt_dv - signed_sqrt_dv.rolling_mean(window_size=window))
-    ).rolling_mean(window_size=window)
-    var = (
-        (signed_sqrt_dv - signed_sqrt_dv.rolling_mean(window_size=window)) ** 2
-    ).rolling_mean(window_size=window)
-
-    safe_var = pl.when(var == 0).then(None).otherwise(var)
-    return (cov / safe_var).alias(f"hasbrouck_lambda_{window}")
+    # Slope of log return on signed sqrt dollar volume.
+    return rolling_beta(log_ret, signed_sqrt_dv, window).alias(
+        f"hasbrouck_lambda_{window}"
+    )
 
 
 def effective_spread(
@@ -167,11 +156,11 @@ def effective_spread(
     which is the standard fallback in the academic microstructure literature
     when only trade prices are observable.
     """
-    close = pl.col(close) if isinstance(close, str) else close
+    close = as_expr(close)
     if mid_price is None:
         mid = close.shift(1)
     else:
-        mid = pl.col(mid_price) if isinstance(mid_price, str) else mid_price
+        mid = as_expr(mid_price)
     return (2.0 * (close - mid).abs()).alias("effective_spread")
 
 
@@ -313,8 +302,8 @@ def hurst_exponent(close: str | pl.Expr, window: int = 100) -> pl.Expr:
     computed over NumPy-reshaped chunks, so cost is dominated by vectorized
     array ops rather than an O(window) Python loop per row.
     """
-    close = pl.col(close) if isinstance(close, str) else close
-    log_ret = (close / close.shift(1)).log()
+    close = as_expr(close)
+    log_ret = log_return(close)
 
     def _rolling_hurst(s: pl.Series) -> pl.Series:
         x = s.to_numpy()
@@ -343,9 +332,9 @@ def variance_ratio(close: str | pl.Expr, window: int = 20, lag: int = 2) -> pl.E
     options-pricing / risk models built on it) actually holds for an
     instrument over a given regime.
     """
-    close = pl.col(close) if isinstance(close, str) else close
-    ret_1 = (close / close.shift(1)).log()
-    ret_lag = (close / close.shift(lag)).log()
+    close = as_expr(close)
+    ret_1 = log_return(close, periods=1)
+    ret_lag = log_return(close, periods=lag)
 
     var_1 = ret_1.rolling_var(window_size=window)
     var_lag = ret_lag.rolling_var(window_size=window)
@@ -369,8 +358,8 @@ def corwin_schultz_spread(
     estimates (which the model treats as zero spread) are floored at zero and
     the result is averaged over ``window`` bars.
     """
-    high = pl.col(high) if isinstance(high, str) else high
-    low = pl.col(low) if isinstance(low, str) else low
+    high = as_expr(high)
+    low = as_expr(low)
 
     # beta: sum of two consecutive single-bar squared log high/low ranges.
     hl = (high / low).log().pow(2)
@@ -402,17 +391,12 @@ def half_life(close: str | pl.Expr, window: int = 60) -> pl.Expr:
     workhorse "how fast does it revert" number on stat-arb desks, pairing
     naturally with :func:`variance_ratio` and :func:`hurst_exponent`.
     """
-    close = pl.col(close) if isinstance(close, str) else close
+    close = as_expr(close)
     y = close.diff(1)  # dP_t
     x = close.shift(1)  # P_{t-1}
 
-    mx = x.rolling_mean(window_size=window)
-    my = y.rolling_mean(window_size=window)
-    cov = ((x - mx) * (y - my)).rolling_mean(window_size=window)
-    var = ((x - mx) ** 2).rolling_mean(window_size=window)
-
-    safe_var = pl.when(var == 0).then(None).otherwise(var)
-    b = cov / safe_var
+    # AR(1) slope b in dP_t = a + b * P_{t-1}.
+    b = rolling_beta(y, x, window)
     # Only mean-reverting fits (b in (-1, 0)) yield a finite positive half-life.
     valid = (b < 0) & (b > -1)
     hl = pl.when(valid).then(-math.log(2) / (1.0 + b).log()).otherwise(None)
