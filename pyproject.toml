@@ -30,6 +30,7 @@ dev = [
     "matplotlib>=3.10.9",
     "pytest>=7.0",
     "ruff>=0.15.22",
+    "hypothesis>=6.0",
 ]
 
 [tool.setuptools]

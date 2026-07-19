@@ -498,7 +498,10 @@ class ComplexTrendIndicators:
         close = pl.col(close) if isinstance(close, str) else close
 
         pos_dm, _, tr = ComplexTrendIndicators._adx_components(high, low, close, window)
-        dip = 100 * (pos_dm / tr)
+        # A flat market has zero true range; report 0 directional strength there
+        # rather than dividing by zero (which would leak inf/NaN).
+        safe_tr = pl.when(tr == 0).then(None).otherwise(tr)
+        dip = (100 * (pos_dm / safe_tr)).fill_null(0.0)
         return BaseIndicator.check_fillna(dip, fillna, value=20)
 
     @staticmethod
@@ -515,7 +518,8 @@ class ComplexTrendIndicators:
         close = pl.col(close) if isinstance(close, str) else close
 
         _, neg_dm, tr = ComplexTrendIndicators._adx_components(high, low, close, window)
-        din = 100 * (neg_dm / tr)
+        safe_tr = pl.when(tr == 0).then(None).otherwise(tr)
+        din = (100 * (neg_dm / safe_tr)).fill_null(0.0)
         return BaseIndicator.check_fillna(din, fillna, value=20)
 
     @staticmethod
@@ -534,7 +538,11 @@ class ComplexTrendIndicators:
         dip = ComplexTrendIndicators.adx_pos(high, low, close, window, fillna)
         din = ComplexTrendIndicators.adx_neg(high, low, close, window, fillna)
 
-        dx = 100 * (dip - din).abs() / (dip + din)
+        # When both +DI and -DI are zero (e.g. a flat market) DX is undefined;
+        # treat it as zero directional movement instead of dividing by zero.
+        di_sum = dip + din
+        safe_di_sum = pl.when(di_sum == 0).then(None).otherwise(di_sum)
+        dx = (100 * (dip - din).abs() / safe_di_sum).fill_null(0.0)
         # ADX is the smoothed moving average of DX
         adx_val = dx.ewm_mean(alpha=1.0 / window, adjust=False)
         return BaseIndicator.check_fillna(adx_val, fillna, value=20)
