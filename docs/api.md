@@ -24,6 +24,10 @@
 
 ::: polars_ta.quant
 
+## Market microstructure
+
+::: polars_ta.microstructure
+
 ## Utilities
 
 ::: polars_ta.utils

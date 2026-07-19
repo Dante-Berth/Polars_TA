@@ -3,7 +3,7 @@
 [![CI](https://github.com/Dante-Berth/Polars_TA/actions/workflows/ci.yml/badge.svg)](https://github.com/Dante-Berth/Polars_TA/actions/workflows/ci.yml)
 [![Docs](https://github.com/Dante-Berth/Polars_TA/actions/workflows/docs.yml/badge.svg)](https://github.com/Dante-Berth/Polars_TA/actions/workflows/docs.yml)
 
-Technical analysis indicators built on [Polars](https://pola.rs) expressions instead of pandas.
+Technical analysis indicators built on [Polars](https://pola.rs) expressions instead of pandas — including retail-standard indicators (RSI, MACD, Bollinger Bands, ...) *and* the market-microstructure/order-flow toolkit used on professional trading desks (VPIN, Kyle's lambda, Roll's spread, Yang-Zhang volatility, multi-scale Hurst regime detection).
 
 📖 **Full documentation:** <https://dante-berth.github.io/Polars_TA/>
 
@@ -54,7 +54,8 @@ uv run python examples/quickstart.py
 | `polars_ta.volatility` | ATR, Bollinger Bands, Keltner Channel, Donchian Channel, Ulcer Index |
 | `polars_ta.volume` | ADI, OBV, Chaikin Money Flow, Force Index, Ease of Movement, VPT, NVI, Money Flow Index, VWAP |
 | `polars_ta.others` | Daily return, daily log return, cumulative return |
-| `polars_ta.quant` | Garman-Klass volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity |
+| `polars_ta.quant` | Garman-Klass & Yang-Zhang volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity, multi-scale Hurst ribbon, relative volume, volatility z-score |
+| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Hurst exponent (R/S), Lo-MacKinlay variance ratio |
 
 Every function also has an equivalent `staticmethod` on a `*Indicators` class (`MomentumIndicators`, `TrendIndicators`, `VolatilityIndicators`, `VolumeIndicators`) if you prefer namespaced access.
 
@@ -88,6 +89,16 @@ uv run python benchmarks/bench_indicators.py
 ```
 
 Times a bundle of ~12 indicators across eager, lazy, and streaming Polars engines at 10K/100K/1M rows.
+
+## Professional-desk features and real-data example
+
+`polars_ta.microstructure` and the newer parts of `polars_ta.quant` implement order-flow and regime-detection tools that retail TA libraries typically don't cover: VPIN, Kyle's/Hasbrouck's lambda, Roll's implied spread, Yang-Zhang volatility, and a multi-scale Hurst ribbon. These are tested against `tests/fixtures/btcusdt_5m_sample.arrow` — a 5,000-row slice of real Binance BTCUSDT 5-minute OHLCV data — rather than synthetic noise, since the whole point of these indicators is behavior on real market microstructure.
+
+```bash
+uv run python examples/plot_regime_dashboard.py
+```
+
+Renders a 3-panel dashboard (price, Hurst-ribbon regime shading, Yang-Zhang volatility + VPIN) to `examples/regime_dashboard.png` — a visual sanity check a human can actually read, not just a table of numbers.
 
 ## Documentation site
 

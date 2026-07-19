@@ -4,7 +4,15 @@ Every indicator returns a lazy ``pl.Expr`` that you can plug directly into
 ``df.with_columns(...)``, so computations stay vectorized and parallel.
 """
 
-from polars_ta import momentum, others, quant, trend, volatility, volume
+from polars_ta import (
+    microstructure,
+    momentum,
+    others,
+    quant,
+    trend,
+    volatility,
+    volume,
+)
 from polars_ta.utils import BaseIndicator, DataCleaner
 
 __version__ = "0.1.0"
@@ -15,6 +23,7 @@ __all__ = [
     "volatility",
     "volume",
     "quant",
+    "microstructure",
     "others",
     "BaseIndicator",
     "DataCleaner",

@@ -80,6 +80,112 @@ def historical_volatility(close: str, window: int = 21) -> pl.Expr:
     return hv.alias(f"hist_vol_{window}")
 
 
+def yang_zhang_volatility(
+    open_price: str,
+    high: str,
+    low: str,
+    close: str,
+    window: int = 20,
+    trading_periods: int = 252,
+) -> pl.Expr:
+    """Yang-Zhang (2000) volatility estimator, annualized.
+
+    Combines overnight (open-to-prev-close), open-to-close drift, and a
+    Rogers-Satchell high/low term into a single minimum-variance estimator
+    that (unlike close-to-close historical volatility or Garman-Klass) is
+    unbiased in the presence of both overnight jumps and intraday drift.
+    This is the volatility estimator of choice on professional vol desks
+    when only OHLC bars (no tick data) are available.
+    """
+    o = pl.col(open_price)
+    h = pl.col(high)
+    lo = pl.col(low)
+    c = pl.col(close)
+
+    log_ho = (h / o.shift(1)).log()
+    log_lo_ = (lo / o).log()
+    log_co = (c / o).log()
+    log_oc = (o / c.shift(1)).log()
+    log_cc = (c / c.shift(1)).log()
+
+    rs_term = log_ho * (log_ho - log_co) + log_lo_ * (log_lo_ - log_co)
+
+    open_vol = (log_oc**2).rolling_sum(window_size=window) / (window - 1)
+    close_vol = (log_cc**2).rolling_sum(window_size=window) / (window - 1)
+    window_rs = rs_term.rolling_sum(window_size=window) / (window - 1)
+
+    k = 0.34 / (1.34 + (window + 1) / (window - 1))
+    yz_variance = open_vol + k * close_vol + (1 - k) * window_rs
+
+    return (yz_variance.sqrt() * math.sqrt(trading_periods)).alias(
+        f"yz_volatility_{window}"
+    )
+
+
+def hurst_ribbon(
+    close: str, scales: tuple[int, ...] = (16, 32, 64)
+) -> dict[str, pl.Expr]:
+    """Multi-scale Hurst ribbon: rescaled-range Hurst exponent computed at
+    several window scales simultaneously, plus two derived regime features.
+
+    Returns a dict of expressions rather than a single one — pass its values
+    straight into ``with_columns(**hurst_ribbon("close").values())`` or
+    unpack individual keys. Keys are ``h_{scale}`` for each scale, plus:
+
+    - ``h_ribbon_avg``: mean Hurst across scales — overall trending
+      (>0.5) vs mean-reverting (<0.5) regime.
+    - ``h_ribbon_tilt``: shortest-scale H minus longest-scale H — positive
+      means short-term trend is stronger than long-term (breakout
+      potential), negative means short-term is exhausting relative to the
+      longer trend.
+
+    Unlike :func:`hurst_exponent`'s full R/S analysis (accurate but
+    O(window) per row), this uses the cheap log(range/std)/log(window)
+    approximation, which is fast enough to run at several scales at once
+    and is the form used in production multi-scale regime detectors.
+    """
+    ln_p = pl.col(close).log()
+    log_ret = ln_p.diff(1)
+
+    h_exprs: dict[str, pl.Expr] = {}
+    for w in scales:
+        rng = ln_p.rolling_max(window_size=w) - ln_p.rolling_min(window_size=w)
+        std = log_ret.rolling_std(window_size=w)
+        safe_std = pl.when(std == 0).then(None).otherwise(std)
+        h_exprs[f"h_{w}"] = ((rng / safe_std).log() / math.log(w)).alias(f"h_{w}")
+
+    avg_expr = sum(h_exprs[f"h_{w}"] for w in scales) / len(scales)
+    tilt_expr = h_exprs[f"h_{scales[0]}"] - h_exprs[f"h_{scales[-1]}"]
+
+    h_exprs["h_ribbon_avg"] = avg_expr.alias("h_ribbon_avg")
+    h_exprs["h_ribbon_tilt"] = tilt_expr.alias("h_ribbon_tilt")
+    return h_exprs
+
+
+def relative_volume(volume: str, window: int = 100) -> pl.Expr:
+    """Relative volume (RVol): current volume vs its rolling mean.
+
+    Spikes in RVol often mark the start or end of a regime — a standard
+    "is something happening right now" gate on execution/monitoring desks.
+    """
+    v = pl.col(volume)
+    return (v / v.rolling_mean(window_size=window)).alias(f"rvol_{window}")
+
+
+def volatility_z_score(high: str, low: str, window: int = 100) -> pl.Expr:
+    """Z-score of the rolling high-low range against its own recent history.
+
+    Flags volatility expansion/contraction relative to the recent norm,
+    independent of the absolute price level — used to gate position sizing
+    or strategy switching on a volatility-regime shift.
+    """
+    hl_range = (pl.col(high) - pl.col(low)).rolling_mean(window_size=window)
+    mean = hl_range.rolling_mean(window_size=window)
+    std = hl_range.rolling_std(window_size=window)
+    safe_std = pl.when(std == 0).then(None).otherwise(std)
+    return ((hl_range - mean) / safe_std).alias(f"vol_z_score_{window}")
+
+
 def amihud_illiquidity(close: str, volume: str, window: int = 21) -> pl.Expr:
     """Rolling Amihud Illiquidity (Price impact per dollar traded)"""
     c = pl.col(close)

@@ -26,6 +26,7 @@ docs = [
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.10.9",
     "pytest>=7.0",
     "ruff>=0.15.22",
 ]
