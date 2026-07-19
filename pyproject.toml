@@ -37,6 +37,7 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.15.22",
     "hypothesis>=6.0",
+    "numba>=0.59",
 ]
 
 [tool.setuptools]

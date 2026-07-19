@@ -26,4 +26,8 @@ jobs:
         run: uv run ruff check .
 
       - name: Test
-        run: uv run pytest --cov=polars_ta --cov-report=term-missing
+        # NUMBA_DISABLE_JIT lets coverage trace the (normally JIT-compiled)
+        # VPIN kernel; the numba-parity test still exercises both code paths.
+        run: uv run pytest --cov=polars_ta --cov-report=term-missing --cov-fail-under=100
+        env:
+          NUMBA_DISABLE_JIT: "1"

@@ -199,7 +199,8 @@ class MomentumIndicators:
                 else:
                     kama[i] = kama[i - 1] + sc_arr[i] * (c_arr[i] - kama[i - 1])
 
-            return pl.Series(kama)
+            # Warm-up rows are *null* ("not enough data yet"), never NaN.
+            return pl.Series(kama).fill_nan(None)
 
         expr = pl.struct(
             [close.alias("close"), smoothing_constant.alias("sc")]

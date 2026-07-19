@@ -272,7 +272,7 @@ def _hurst_from_window(x: np.ndarray) -> float:
     log_rs = []
     for chunk in chunk_sizes:
         n_chunks = n // chunk
-        if n_chunks < 1:
+        if n_chunks < 1:  # pragma: no cover - chunk <= n//2 guarantees >= 2
             continue
         # Vectorize over all non-overlapping chunks at once instead of a
         # Python loop per chunk: reshape into (n_chunks, chunk) and reduce

@@ -23,8 +23,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   count, but a single bar can fill several buckets. Buffers are now sized by
   `total volume / bucket_size`.
 
+- **`momentum.kama` returned float `NaN` instead of null for its warm-up
+  rows**, violating the library-wide "not enough data yet is null" convention.
+- **`quant.log_return`, `microstructure.rolling_beta`, and
+  `microstructure.rolling_cov` rejected column-name strings** (they only
+  accepted `pl.Expr`, unlike every other indicator). They now coerce strings
+  like the rest of the API.
+
 ### Added
 
+- **100% line coverage**, enforced in CI (`--cov-fail-under=100`): a smoke
+  suite (`tests/test_smoke.py`) exercises every public indicator in both
+  fillna modes, plus edge-case tests for class-only combination indicators,
+  the Keltner EMA variant, Ichimoku visual mode, smoothed VPT, and degenerate
+  inputs (flat/short series, never-filling VPIN buckets).
 - **Multi-asset guarantee:** every indicator (including the sequential
   `map_batches`-based KAMA, PSAR, VPIN, and Hurst) works per-symbol via
   `.over("symbol")` with no state leaking across symbols, enforced by a new
