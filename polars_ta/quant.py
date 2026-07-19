@@ -1,12 +1,13 @@
 import math
+
 import polars as pl
 
 
 def garman_klass_volatility(
     open_price: str, high: str, low: str, close: str, window: int = 20
 ) -> pl.Expr:
-    o, h, l, c = pl.col(open_price), pl.col(high), pl.col(low), pl.col(close)
-    log_hl = (h / l).log().pow(2)
+    o, h, lo, c = pl.col(open_price), pl.col(high), pl.col(low), pl.col(close)
+    log_hl = (h / lo).log().pow(2)
     log_co = (c / o).log().pow(2)
     gk_variance = (0.5 * log_hl) - ((2 * math.log(2) - 1) * log_co)
     return gk_variance.rolling_mean(window_size=window).sqrt()
@@ -30,8 +31,8 @@ def vol_adjusted_momentum(close: str, window: int = 20) -> pl.Expr:
 
 
 def micro_price_proxy(high: str, low: str, close: str, volume: str) -> pl.Expr:
-    h, l, c, v = pl.col(high), pl.col(low), pl.col(close), pl.col(volume)
-    typical_price = (h + l + c) / 3.0
+    h, lo, c, v = pl.col(high), pl.col(low), pl.col(close), pl.col(volume)
+    typical_price = (h + lo + c) / 3.0
     log_v = pl.when(v <= 1).then(1.0).otherwise(v.log())
     return typical_price * log_v
 

@@ -1,5 +1,5 @@
-import numpy as np
 import polars as pl
+
 from polars_ta.utils import BaseIndicator
 
 
@@ -25,9 +25,9 @@ class VolatilityIndicators:
         close_shift = close.shift(1)
         true_range = BaseIndicator.true_range(high, low, close_shift)
 
-        # Wilder's smoothing is mathematically equivalent to an EMA with alpha = 1 / window
+        # Wilder's smoothing is equivalent to an EMA with alpha = 1 / window
         atr = true_range.ewm_mean(
-            alpha=1.0 / window, adjust=False, min_periods=min_periods
+            alpha=1.0 / window, adjust=False, min_samples=min_periods
         )
         return BaseIndicator.check_fillna(atr, fillna, value=0)
 
@@ -39,9 +39,9 @@ class VolatilityIndicators:
         close: pl.Expr, window: int, window_dev: int, fillna: bool
     ) -> tuple[pl.Expr, pl.Expr, pl.Expr]:
         min_periods = 1 if fillna else window
-        mavg = close.rolling_mean(window_size=window, min_periods=min_periods)
+        mavg = close.rolling_mean(window_size=window, min_samples=min_periods)
         # Note: ta uses ddof=0 for its standard deviation
-        mstd = close.rolling_std(window_size=window, min_periods=min_periods, ddof=0)
+        mstd = close.rolling_std(window_size=window, min_samples=min_periods, ddof=0)
         hband = mavg + (window_dev * mstd)
         lband = mavg - (window_dev * mstd)
         return mavg, hband, lband
@@ -157,16 +157,16 @@ class VolatilityIndicators:
 
         if original_version:
             tp = ((high + low + close) / 3.0).rolling_mean(
-                window_size=window, min_periods=min_periods
+                window_size=window, min_samples=min_periods
             )
             tp_high = (((4 * high) - (2 * low) + close) / 3.0).rolling_mean(
-                window_size=window, min_periods=1
+                window_size=window, min_samples=1
             )
             tp_low = (((-2 * high) + (4 * low) + close) / 3.0).rolling_mean(
-                window_size=window, min_periods=1
+                window_size=window, min_samples=1
             )
         else:
-            tp = close.ewm_mean(span=window, adjust=False, min_periods=min_periods)
+            tp = close.ewm_mean(span=window, adjust=False, min_samples=min_periods)
             atr = VolatilityIndicators.average_true_range(
                 high, low, close, window_atr, fillna
             )
@@ -306,8 +306,8 @@ class VolatilityIndicators:
         high: pl.Expr, low: pl.Expr, window: int, fillna: bool
     ) -> tuple[pl.Expr, pl.Expr]:
         min_periods = 1 if fillna else window
-        hband = high.rolling_max(window_size=window, min_periods=min_periods)
-        lband = low.rolling_min(window_size=window, min_periods=min_periods)
+        hband = high.rolling_max(window_size=window, min_samples=min_periods)
+        lband = low.rolling_min(window_size=window, min_samples=min_periods)
         return hband, lband
 
     @staticmethod
@@ -365,7 +365,7 @@ class VolatilityIndicators:
         high, low, close = pl.col(high), pl.col(low), pl.col(close)
         hband, lband = VolatilityIndicators._dc_components(high, low, window, fillna)
         mavg = close.rolling_mean(
-            window_size=window, min_periods=1 if fillna else window
+            window_size=window, min_samples=1 if fillna else window
         )
         wband = ((hband - lband) / mavg) * 100
         wband = BaseIndicator.check_fillna(wband, fillna, value=0)
@@ -396,14 +396,14 @@ class VolatilityIndicators:
         """Ulcer Index (UI) - fully vectorized!"""
         close = pl.col(close) if isinstance(close, str) else close
 
-        ui_max = close.rolling_max(window_size=window, min_periods=1)
+        ui_max = close.rolling_max(window_size=window, min_samples=1)
         r_i = 100 * (close - ui_max) / ui_max
 
         # Instead of a slow python function applied across a rolling window,
         # we can mathematically vectorize the root-mean-square
         r_i_squared = r_i.pow(2)
         ulcer_idx = (
-            r_i_squared.rolling_sum(window_size=window, min_periods=1) / window
+            r_i_squared.rolling_sum(window_size=window, min_samples=1) / window
         ).sqrt()
 
         return BaseIndicator.check_fillna(ulcer_idx, fillna, value=0)

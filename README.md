@@ -1,5 +1,7 @@
 # Polars TA
 
+[![CI](https://github.com/Dante-Berth/Polars_TA/actions/workflows/ci.yml/badge.svg)](https://github.com/Dante-Berth/Polars_TA/actions/workflows/ci.yml)
+
 Technical analysis indicators built on [Polars](https://pola.rs) expressions instead of pandas.
 
 Every indicator is a plain `pl.Expr`, so it composes naturally with `.with_columns(...)`, works on both `DataFrame` and `LazyFrame`, and runs on Polars' multithreaded, vectorized engine — no row-by-row Python loops (aside from a couple of genuinely recursive indicators like KAMA and PSAR, which use `map_batches`).
@@ -63,10 +65,23 @@ Utilities:
 - Column arguments accept either a column name (`str`) or an existing `pl.Expr`.
 - Every indicator takes a `fillna: bool = False` flag. When `True`, gaps are forward-filled (and back-filled/defaulted at the start) instead of left as nulls.
 - Indicators are pure expressions with no side effects — nothing is evaluated until you call `.collect()` or use them inside `.with_columns(...)`.
+- Every indicator also works with Polars' [streaming engine](https://docs.pola.rs/user-guide/lazy/streaming/) (`.collect(engine="streaming")`) for datasets larger than memory.
 
 ## Development
 
 ```bash
 uv sync --group dev
-uv run pytest
+uv run pytest        # unit + numerical reference tests
+uv run ruff check .  # lint
+uv run ruff format . # format
 ```
+
+`tests/test_reference.py` cross-checks a sample of indicators (RSI, SMA, ATR, Bollinger Bands) against independent NumPy reference implementations to catch numerical regressions.
+
+## Benchmarks
+
+```bash
+uv run python benchmarks/bench_indicators.py
+```
+
+Times a bundle of ~12 indicators across eager, lazy, and streaming Polars engines at 10K/100K/1M rows.

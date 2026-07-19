@@ -1,5 +1,5 @@
-import typing as tp
 import polars as pl
+
 from polars_ta.utils import BaseIndicator
 
 
@@ -72,8 +72,8 @@ class VolumeIndicators:
         mfv = (((close - low) - (high - close)) / safe_hl_diff) * volume
 
         cmf = mfv.rolling_sum(
-            window_size=window, min_periods=min_periods
-        ) / volume.rolling_sum(window_size=window, min_periods=min_periods)
+            window_size=window, min_samples=min_periods
+        ) / volume.rolling_sum(window_size=window, min_samples=min_periods)
         return BaseIndicator.check_fillna(cmf, fillna, value=0)
 
     # ---------------------------------------------------------
@@ -119,7 +119,7 @@ class VolumeIndicators:
     ) -> pl.Expr:
         emv = VolumeIndicators.ease_of_movement(high, low, volume, window, fillna)
         min_periods = 1 if fillna else window
-        sma_emv = emv.rolling_mean(window_size=window, min_periods=min_periods)
+        sma_emv = emv.rolling_mean(window_size=window, min_samples=min_periods)
         return BaseIndicator.check_fillna(sma_emv, fillna, value=0)
 
     # ---------------------------------------------------------
@@ -130,7 +130,7 @@ class VolumeIndicators:
         close: str | pl.Expr,
         volume: str | pl.Expr,
         fillna: bool = False,
-        smoothing_factor: tp.Optional[int] = None,
+        smoothing_factor: int | None = None,
         dropnans: bool = False,
     ) -> pl.Expr:
         close, volume = pl.col(close), pl.col(volume)
@@ -142,11 +142,12 @@ class VolumeIndicators:
         if smoothing_factor:
             min_periods = 1 if fillna else smoothing_factor
             vpt = vpt.rolling_mean(
-                window_size=smoothing_factor, min_periods=min_periods
+                window_size=smoothing_factor, min_samples=min_periods
             )
 
-        # Note: dropnans is ignored here because Polars Expr must return the same length
-        # as the DataFrame when used in .with_columns(). Drop nulls at the DataFrame level.
+        # Note: dropnans is ignored here because Polars Expr must return the same
+        # length as the DataFrame when used in .with_columns(). Drop nulls at the
+        # DataFrame level.
         return BaseIndicator.check_fillna(vpt, fillna, value=0)
 
     # ---------------------------------------------------------
@@ -203,8 +204,8 @@ class VolumeIndicators:
         pos_mf = pl.when(mfr > 0).then(mfr).otherwise(0.0)
         neg_mf = pl.when(mfr < 0).then(-mfr).otherwise(0.0)
 
-        n_pos_mf = pos_mf.rolling_sum(window_size=window, min_periods=min_periods)
-        n_neg_mf = neg_mf.rolling_sum(window_size=window, min_periods=min_periods)
+        n_pos_mf = pos_mf.rolling_sum(window_size=window, min_samples=min_periods)
+        n_neg_mf = neg_mf.rolling_sum(window_size=window, min_samples=min_periods)
 
         # Protect against division by zero
         safe_neg_mf = pl.when(n_neg_mf == 0).then(1.0).otherwise(n_neg_mf)
@@ -241,9 +242,9 @@ class VolumeIndicators:
         typical_price_volume = typical_price * volume
 
         total_pv = typical_price_volume.rolling_sum(
-            window_size=window, min_periods=min_periods
+            window_size=window, min_samples=min_periods
         )
-        total_volume = volume.rolling_sum(window_size=window, min_periods=min_periods)
+        total_volume = volume.rolling_sum(window_size=window, min_samples=min_periods)
 
         vwap = total_pv / total_volume
         return BaseIndicator.check_fillna(vwap, fillna, value=0)
@@ -282,7 +283,7 @@ def volume_price_trend(
     close,
     volume,
     fillna=False,
-    smoothing_factor: tp.Optional[int] = None,
+    smoothing_factor: int | None = None,
     dropnans: bool = False,
 ) -> pl.Expr:
     return VolumeIndicators.volume_price_trend(

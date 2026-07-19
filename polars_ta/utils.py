@@ -1,5 +1,7 @@
 import math
+
 import polars as pl
+import polars.selectors as cs
 
 
 class BaseIndicator:
@@ -48,14 +50,14 @@ class BaseIndicator:
         """Simple Moving Average"""
         expr = pl.col(expr) if isinstance(expr, str) else expr
         min_periods = 1 if fillna else periods
-        return expr.rolling_mean(window_size=periods, min_periods=min_periods)
+        return expr.rolling_mean(window_size=periods, min_samples=min_periods)
 
     @staticmethod
     def ema(expr: pl.Expr | str, periods: int, fillna: bool = False) -> pl.Expr:
         """Exponential Moving Average"""
         expr = pl.col(expr) if isinstance(expr, str) else expr
         min_periods = 1 if fillna else periods
-        return expr.ewm_mean(span=periods, adjust=False, min_periods=min_periods)
+        return expr.ewm_mean(span=periods, adjust=False, min_samples=min_periods)
 
     @staticmethod
     def get_min_max(
@@ -82,7 +84,7 @@ class DataCleaner:
         Helper method: Builds a mask that flags rows containing
         NaN, Null, Infinity, or excessively large numbers.
         """
-        num_cols = df.select(pl.col(pl.NUMERIC_DTYPES)).columns
+        num_cols = df.select(cs.numeric()).columns
         is_invalid_mask = pl.lit(False)
         big_number = math.exp(709)
 
@@ -129,7 +131,7 @@ class DataCleaner:
         Replaces invalid values with Polars Nulls, then approximates them
         using linear interpolation and forward-filling based on past values.
         """
-        num_cols = df.select(pl.col(pl.NUMERIC_DTYPES)).columns
+        num_cols = df.select(cs.numeric()).columns
         big_number = math.exp(709)
 
         exprs = []

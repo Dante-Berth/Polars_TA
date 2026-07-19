@@ -1,5 +1,6 @@
 import numpy as np
 import polars as pl
+
 from polars_ta.utils import BaseIndicator
 
 # (Assuming BaseIndicator is already defined from our previous steps)
@@ -20,10 +21,10 @@ class MomentumIndicators:
 
         # RSI typically uses Wilder's smoothing (alpha = 1 / window)
         emaup = up_direction.ewm_mean(
-            alpha=1.0 / window, adjust=False, min_periods=min_periods
+            alpha=1.0 / window, adjust=False, min_samples=min_periods
         )
         emadn = down_direction.ewm_mean(
-            alpha=1.0 / window, adjust=False, min_periods=min_periods
+            alpha=1.0 / window, adjust=False, min_samples=min_periods
         )
 
         relative_strength = emaup / emadn
@@ -52,13 +53,13 @@ class MomentumIndicators:
         diff_close = close.diff(1)
 
         smoothed = diff_close.ewm_mean(
-            span=window_slow, adjust=False, min_periods=min_periods_r
-        ).ewm_mean(span=window_fast, adjust=False, min_periods=min_periods_s)
+            span=window_slow, adjust=False, min_samples=min_periods_r
+        ).ewm_mean(span=window_fast, adjust=False, min_samples=min_periods_s)
 
         smoothed_abs = (
             diff_close.abs()
-            .ewm_mean(span=window_slow, adjust=False, min_periods=min_periods_r)
-            .ewm_mean(span=window_fast, adjust=False, min_periods=min_periods_s)
+            .ewm_mean(span=window_slow, adjust=False, min_samples=min_periods_r)
+            .ewm_mean(span=window_fast, adjust=False, min_samples=min_periods_s)
         )
 
         tsi_val = (smoothed / smoothed_abs) * 100.0
@@ -89,21 +90,21 @@ class MomentumIndicators:
         buying_pressure = close - min_low_or_pc
 
         avg_s = buying_pressure.rolling_sum(
-            window_size=window1, min_periods=1 if fillna else window1
+            window_size=window1, min_samples=1 if fillna else window1
         ) / true_range.rolling_sum(
-            window_size=window1, min_periods=1 if fillna else window1
+            window_size=window1, min_samples=1 if fillna else window1
         )
 
         avg_m = buying_pressure.rolling_sum(
-            window_size=window2, min_periods=1 if fillna else window2
+            window_size=window2, min_samples=1 if fillna else window2
         ) / true_range.rolling_sum(
-            window_size=window2, min_periods=1 if fillna else window2
+            window_size=window2, min_samples=1 if fillna else window2
         )
 
         avg_l = buying_pressure.rolling_sum(
-            window_size=window3, min_periods=1 if fillna else window3
+            window_size=window3, min_samples=1 if fillna else window3
         ) / true_range.rolling_sum(
-            window_size=window3, min_periods=1 if fillna else window3
+            window_size=window3, min_samples=1 if fillna else window3
         )
 
         uo = (
@@ -127,8 +128,8 @@ class MomentumIndicators:
         high, low, close = pl.col(high), pl.col(low), pl.col(close)
         min_periods = 1 if fillna else window
 
-        smin = low.rolling_min(window_size=window, min_periods=min_periods)
-        smax = high.rolling_max(window_size=window, min_periods=min_periods)
+        smin = low.rolling_min(window_size=window, min_samples=min_periods)
+        smax = high.rolling_max(window_size=window, min_samples=min_periods)
 
         stoch_k = 100.0 * (close - smin) / (smax - smin)
         return BaseIndicator.check_fillna(stoch_k, fillna, value=50)
@@ -144,7 +145,7 @@ class MomentumIndicators:
     ) -> pl.Expr:
         stoch_k = MomentumIndicators.stoch(high, low, close, window, fillna)
         stoch_d = stoch_k.rolling_mean(
-            window_size=smooth_window, min_periods=1 if fillna else smooth_window
+            window_size=smooth_window, min_samples=1 if fillna else smooth_window
         )
         return BaseIndicator.check_fillna(stoch_d, fillna, value=50)
 
@@ -165,7 +166,7 @@ class MomentumIndicators:
         # 1. Calculate the Dynamic Smoothing Constant in Polars
         vol = (close - close.shift(1)).abs()
         er_num = (close - close.shift(window)).abs()
-        er_den = vol.rolling_sum(window_size=window, min_periods=min_periods)
+        er_den = vol.rolling_sum(window_size=window, min_samples=min_periods)
 
         efficiency_ratio = pl.when(er_den != 0).then(er_num / er_den).otherwise(0.0)
 
@@ -231,10 +232,10 @@ class MomentumIndicators:
         median_price = 0.5 * (high + low)
 
         sma_fast = median_price.rolling_mean(
-            window_size=window1, min_periods=1 if fillna else window1
+            window_size=window1, min_samples=1 if fillna else window1
         )
         sma_slow = median_price.rolling_mean(
-            window_size=window2, min_periods=1 if fillna else window2
+            window_size=window2, min_samples=1 if fillna else window2
         )
 
         ao = sma_fast - sma_slow
@@ -254,8 +255,8 @@ class MomentumIndicators:
         high, low, close = pl.col(high), pl.col(low), pl.col(close)
         min_periods = 1 if fillna else lbp
 
-        highest_high = high.rolling_max(window_size=lbp, min_periods=min_periods)
-        lowest_low = low.rolling_min(window_size=lbp, min_periods=min_periods)
+        highest_high = high.rolling_max(window_size=lbp, min_samples=min_periods)
+        lowest_low = low.rolling_min(window_size=lbp, min_samples=min_periods)
 
         wr = -100.0 * (highest_high - close) / (highest_high - lowest_low)
         return BaseIndicator.check_fillna(wr, fillna, value=-50)
@@ -271,10 +272,10 @@ class MomentumIndicators:
         rsi_val = MomentumIndicators.rsi(close, window, fillna)
 
         lowest_low_rsi = rsi_val.rolling_min(
-            window_size=window, min_periods=1 if fillna else window
+            window_size=window, min_samples=1 if fillna else window
         )
         highest_high_rsi = rsi_val.rolling_max(
-            window_size=window, min_periods=1 if fillna else window
+            window_size=window, min_samples=1 if fillna else window
         )
 
         stochrsi_val = (rsi_val - lowest_low_rsi) / (highest_high_rsi - lowest_low_rsi)
@@ -286,7 +287,7 @@ class MomentumIndicators:
     ) -> pl.Expr:
         stochrsi_val = MomentumIndicators.stochrsi(close, window, fillna)
         stochrsi_k_val = stochrsi_val.rolling_mean(
-            window_size=smooth1, min_periods=1 if fillna else smooth1
+            window_size=smooth1, min_samples=1 if fillna else smooth1
         )
         return BaseIndicator.check_fillna(stochrsi_k_val, fillna, value=0)
 
@@ -300,7 +301,7 @@ class MomentumIndicators:
     ) -> pl.Expr:
         stochrsi_k_val = MomentumIndicators.stochrsi_k(close, window, smooth1, fillna)
         stochrsi_d_val = stochrsi_k_val.rolling_mean(
-            window_size=smooth2, min_periods=1 if fillna else smooth2
+            window_size=smooth2, min_samples=1 if fillna else smooth2
         )
         return BaseIndicator.check_fillna(stochrsi_d_val, fillna, value=0)
 

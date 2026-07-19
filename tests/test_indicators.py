@@ -2,7 +2,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from polars_ta import momentum, trend, volatility, volume, quant, others
+from polars_ta import momentum, others, quant, trend, volatility, volume
 from polars_ta.utils import DataCleaner
 
 
@@ -33,7 +33,9 @@ def test_stoch_bounds(df):
 
 
 def test_williams_r_bounds(df):
-    out = df.select(momentum.williams_r("high", "low", "close").alias("wr")).drop_nulls()
+    out = df.select(
+        momentum.williams_r("high", "low", "close").alias("wr")
+    ).drop_nulls()
     assert out["wr"].min() >= -100
     assert out["wr"].max() <= 0
 
@@ -135,6 +137,18 @@ def test_fillna_removes_nulls(df):
 def test_lazyframe_support(df):
     out = df.lazy().with_columns(momentum.rsi("close").alias("rsi")).collect()
     assert "rsi" in out.columns
+
+
+def test_streaming_engine_matches_default(df):
+    lf = df.lazy().with_columns(
+        momentum.rsi("close").alias("rsi"),
+        trend.macd("close").alias("macd"),
+        volatility.average_true_range("high", "low", "close").alias("atr"),
+        volume.on_balance_volume("close", "volume").alias("obv"),
+    )
+    default = lf.collect()
+    streamed = lf.collect(engine="streaming")
+    assert default.equals(streamed)
 
 
 def test_data_cleaner():

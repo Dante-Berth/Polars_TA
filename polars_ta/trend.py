@@ -1,5 +1,6 @@
-import polars as pl
 import numpy as np
+import polars as pl
+
 from polars_ta.utils import BaseIndicator
 
 
@@ -21,7 +22,7 @@ class TrendIndicators:
         expr = high.rolling_map(
             lambda s: float(s.to_numpy().argmax()) / window * 100,
             window_size=window + 1,
-            min_periods=min_periods,
+            min_samples=min_periods,
         )
         return BaseIndicator.check_fillna(expr, fillna, value=0)
 
@@ -36,7 +37,7 @@ class TrendIndicators:
         expr = low.rolling_map(
             lambda s: float(s.to_numpy().argmin()) / window * 100,
             window_size=window + 1,
-            min_periods=min_periods,
+            min_samples=min_periods,
         )
         return BaseIndicator.check_fillna(expr, fillna, value=0)
 
@@ -173,7 +174,7 @@ class TrendIndicators:
         ema2 = BaseIndicator.ema(ema1, window_fast, fillna)
 
         mass = ema1 / ema2
-        mass_idx = mass.rolling_sum(window_size=window_slow, min_periods=min_periods)
+        mass_idx = mass.rolling_sum(window_size=window_slow, min_samples=min_periods)
 
         return BaseIndicator.check_fillna(mass_idx, fillna, value=0)
 
@@ -186,8 +187,8 @@ class TrendIndicators:
     ) -> pl.Expr:
         """Helper method to calculate Ichimoku lines (Conv, Base, Span B)"""
         min_periods = 1 if fillna else window
-        roll_max = high.rolling_max(window_size=window, min_periods=min_periods)
-        roll_min = low.rolling_min(window_size=window, min_periods=min_periods)
+        roll_max = high.rolling_max(window_size=window, min_samples=min_periods)
+        roll_min = low.rolling_min(window_size=window, min_samples=min_periods)
         return 0.5 * (roll_max + roll_min)
 
     @staticmethod
@@ -247,7 +248,7 @@ class TrendIndicators:
         high = pl.col(high) if isinstance(high, str) else high
         low = pl.col(low) if isinstance(low, str) else low
 
-        # Span B is calculated using the longest window (window3) but shifted by window2 if visual
+        # Span B uses the longest window (window3), shifted by window2 if visual
         spanb = TrendIndicators._ichimoku_line(high, low, window3, fillna)
 
         if visual:
@@ -279,7 +280,7 @@ class TrendIndicators:
             min_p = 1 if fillna else w
             shifted_close = close.shift(r).fill_null(close.mean())
             roc = (close - shifted_close) / shifted_close
-            return roc.rolling_mean(window_size=w, min_periods=min_p)
+            return roc.rolling_mean(window_size=w, min_samples=min_p)
 
         rocma1 = _rocma(roc1, window1)
         rocma2 = _rocma(roc2, window2)
@@ -307,7 +308,7 @@ class TrendIndicators:
         kst_val = TrendIndicators.kst(
             close, roc1, roc2, roc3, roc4, window1, window2, window3, window4, fillna
         )
-        kst_sig_val = kst_val.rolling_mean(window_size=nsig, min_periods=1)
+        kst_sig_val = kst_val.rolling_mean(window_size=nsig, min_samples=1)
         return BaseIndicator.check_fillna(kst_sig_val, fillna, value=0)
 
     @staticmethod
@@ -359,7 +360,7 @@ class ComplexTrendIndicators:
         # Shift back by (window / 2) + 1
         shift_val = int((0.5 * window) + 1)
         shifted_close = close.shift(shift_val).fill_null(close.mean())
-        sma = close.rolling_mean(window_size=window, min_periods=min_periods)
+        sma = close.rolling_mean(window_size=window, min_samples=min_periods)
 
         dpo_val = shifted_close - sma
         return BaseIndicator.check_fillna(dpo_val, fillna, value=0)
@@ -383,13 +384,13 @@ class ComplexTrendIndicators:
         min_periods = 1 if fillna else window
 
         typical_price = (high + low + close) / 3.0
-        tp_sma = typical_price.rolling_mean(window_size=window, min_periods=min_periods)
+        tp_sma = typical_price.rolling_mean(window_size=window, min_samples=min_periods)
 
         # Polars rolling_map for Mean Absolute Deviation (MAD)
         mad = typical_price.rolling_map(
-            lambda s: np.mean(np.abs(s - np.mean(s))),
+            lambda s: float(np.abs(s.to_numpy() - s.to_numpy().mean()).mean()),
             window_size=window,
-            min_periods=min_periods,
+            min_samples=min_periods,
         )
 
         cci_val = (typical_price - tp_sma) / (constant * mad)
@@ -415,10 +416,10 @@ class ComplexTrendIndicators:
         close_shift = close.shift(1).fill_null(close.mean())
         true_range = BaseIndicator.true_range(high, low, close_shift)
 
-        trn = true_range.rolling_sum(window_size=window, min_periods=min_periods)
+        trn = true_range.rolling_sum(window_size=window, min_samples=min_periods)
         vmp = (high - low.shift(1)).abs()
 
-        vip = vmp.rolling_sum(window_size=window, min_periods=min_periods) / trn
+        vip = vmp.rolling_sum(window_size=window, min_samples=min_periods) / trn
         return BaseIndicator.check_fillna(vip, fillna, value=1)
 
     @staticmethod
@@ -438,10 +439,10 @@ class ComplexTrendIndicators:
         close_shift = close.shift(1).fill_null(close.mean())
         true_range = BaseIndicator.true_range(high, low, close_shift)
 
-        trn = true_range.rolling_sum(window_size=window, min_periods=min_periods)
+        trn = true_range.rolling_sum(window_size=window, min_samples=min_periods)
         vmm = (low - high.shift(1)).abs()
 
-        vin = vmm.rolling_sum(window_size=window, min_periods=min_periods) / trn
+        vin = vmm.rolling_sum(window_size=window, min_samples=min_periods) / trn
         return BaseIndicator.check_fillna(vin, fillna, value=1)
 
     @staticmethod
@@ -465,7 +466,7 @@ class ComplexTrendIndicators:
     def _adx_components(
         high: pl.Expr, low: pl.Expr, close: pl.Expr, window: int
     ) -> tuple[pl.Expr, pl.Expr, pl.Expr]:
-        """Helper to compute Directional Movement and True Range via Wilder's Smoothing (EMA)"""
+        """Compute Directional Movement and True Range via Wilder's smoothing (EMA)."""
         up = high - high.shift(1)
         down = low.shift(1) - low
 
@@ -643,8 +644,8 @@ class ComplexTrendIndicators:
         macd = ema_fast - ema_slow
 
         # 2. Stochastic of MACD
-        macd_min = macd.rolling_min(window_size=cycle, min_periods=min_periods_cycle)
-        macd_max = macd.rolling_max(window_size=cycle, min_periods=min_periods_cycle)
+        macd_min = macd.rolling_min(window_size=cycle, min_samples=min_periods_cycle)
+        macd_max = macd.rolling_max(window_size=cycle, min_samples=min_periods_cycle)
 
         # Guard against division by zero in stochastic calculation
         macd_range = macd_max - macd_min
@@ -656,10 +657,10 @@ class ComplexTrendIndicators:
 
         # 4. Stochastic of Smoothed Stochastic
         stoch_d_min = stoch_d.rolling_min(
-            window_size=cycle, min_periods=min_periods_cycle
+            window_size=cycle, min_samples=min_periods_cycle
         )
         stoch_d_max = stoch_d.rolling_max(
-            window_size=cycle, min_periods=min_periods_cycle
+            window_size=cycle, min_samples=min_periods_cycle
         )
 
         stoch_d_range = stoch_d_max - stoch_d_min

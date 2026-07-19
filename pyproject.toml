@@ -18,10 +18,19 @@ classifiers = [
 dependencies = ["polars>=1.0", "numpy>=1.24"]
 
 [dependency-groups]
-dev = ["pytest>=7.0"]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.15.22",
+]
 
 [tool.setuptools]
 packages = ["polars_ta"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
