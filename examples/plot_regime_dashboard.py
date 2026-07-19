@@ -8,7 +8,8 @@ VPIN (order-flow toxicity).
 Run with:
     uv run python examples/plot_regime_dashboard.py
 
-Saves regime_dashboard.png next to this script.
+Saves regime_dashboard.png next to this script, and a copy into
+docs/assets/ so the documentation site can embed it.
 """
 
 from pathlib import Path
@@ -18,10 +19,10 @@ import polars as pl
 
 from polars_ta import microstructure, quant
 
-FIXTURE = (
-    Path(__file__).parent.parent / "tests" / "fixtures" / "btcusdt_5m_sample.arrow"
-)
+ROOT = Path(__file__).parent.parent
+FIXTURE = ROOT / "tests" / "fixtures" / "btcusdt_5m_sample.arrow"
 OUT_PATH = Path(__file__).parent / "regime_dashboard.png"
+DOCS_OUT_PATH = ROOT / "docs" / "assets" / "regime_dashboard.png"
 
 
 def main() -> None:
@@ -102,8 +103,11 @@ def main() -> None:
 
     plt.tight_layout()
     fig.savefig(OUT_PATH, dpi=150)
+    DOCS_OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(DOCS_OUT_PATH, dpi=150)
     plt.close(fig)
     print(f"Saved: {OUT_PATH}")
+    print(f"Saved: {DOCS_OUT_PATH}")
 
 
 if __name__ == "__main__":

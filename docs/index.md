@@ -10,6 +10,7 @@ Every indicator is a plain `pl.Expr`, so it composes naturally with `.with_colum
 - **One dependency.** Just `polars` + `numpy`, no pandas in the critical path.
 - **Streaming-ready.** Every indicator is validated to produce identical output under Polars' streaming engine, so it scales to datasets larger than memory.
 - **Numerically checked.** A subset of indicators is cross-validated against independent NumPy reference implementations in CI.
+- **Not just retail indicators.** Alongside RSI/MACD/Bollinger-style indicators, `polars_ta.microstructure` and `polars_ta.quant` include order-flow and regime tools used on professional desks — VPIN, Kyle's/Hasbrouck's lambda, Roll's spread, Yang-Zhang volatility, multi-scale Hurst regime detection — validated against real BTCUSDT market data, not just synthetic series.
 
 ## Where to go next
 

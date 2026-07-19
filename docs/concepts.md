@@ -52,3 +52,17 @@ df.lazy().with_columns(momentum.rsi("close")).collect(engine="streaming")
 ## Numerical validation strategy
 
 Bounded oscillators (RSI, Stochastic, Williams %R) are checked for their mathematical invariants (e.g. RSI ∈ [0, 100]) directly. A smaller set of indicators (RSI, SMA, ATR, Bollinger Bands) is additionally cross-checked in `tests/test_reference.py` against independent NumPy implementations of the same formulas, to catch numerical regressions that bounds-checking alone would miss (e.g. an off-by-one in a rolling window, or a wrong smoothing constant).
+
+## Retail indicators vs. professional microstructure features
+
+Most of `polars_ta` (`momentum`, `trend`, `volatility`, `volume`) implements the same indicator set found in retail TA libraries like `ta` or `ta-lib` — RSI, MACD, Bollinger Bands, and so on. These operate purely on OHLCV bars and answer "what has price/volume done."
+
+`polars_ta.microstructure`, and the newer half of `polars_ta.quant`, are a different category: **market microstructure and order-flow features**, standard on professional trading/execution desks but essentially absent from retail toolkits, because they require reasoning about *within-bar* trade dynamics rather than just bar-level OHLCV:
+
+- **VPIN** ([`microstructure.vpin`](api.md#polars_ta.microstructure.vpin)) infers buy/sell imbalance from price-change-based bulk volume classification, aggregated into synchronized volume buckets rather than time bars — this is why it takes a `bucket_size` argument instead of a `window` in bars.
+- **Kyle's lambda / Hasbrouck's lambda** ([`microstructure.kyle_lambda`](api.md#polars_ta.microstructure.kyle_lambda), [`microstructure.hasbrouck_lambda`](api.md#polars_ta.microstructure.hasbrouck_lambda)) estimate price impact per unit of signed order flow by regressing price changes against a tick-rule proxy for trade direction (the sign of the price change itself, since bar data has no true trade-by-trade direction).
+- **Roll's spread** ([`microstructure.roll_spread`](api.md#polars_ta.microstructure.roll_spread)) backs out the effective bid-ask spread purely from the serial covariance of price changes — no quote data required.
+- **Yang-Zhang volatility** ([`quant.yang_zhang_volatility`](api.md#polars_ta.quant.yang_zhang_volatility)) is the minimum-variance OHLC volatility estimator that correctly accounts for both overnight jumps and intraday drift, versus simpler close-to-close historical volatility.
+- **The Hurst ribbon** ([`quant.hurst_ribbon`](api.md#polars_ta.quant.hurst_ribbon)) and the standalone [`microstructure.hurst_exponent`](api.md#polars_ta.microstructure.hurst_exponent) classify the current regime as trending (H > 0.5) or mean-reverting (H < 0.5) — used to switch strategy family rather than as a standalone trade signal.
+
+None of these are meant as standalone buy/sell signals — they're **regime and risk gauges**: is the market trending or mean-reverting right now, is liquidity thin, is order flow toxic. See [Examples → professional-desk regime dashboard](examples.md#professional-desk-regime-dashboard-on-real-btcusdt-data) for what these look like plotted against real BTCUSDT data, and why that example deliberately doesn't use synthetic data.

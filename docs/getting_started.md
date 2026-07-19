@@ -50,6 +50,22 @@ See [examples/quickstart.py](https://github.com/Dante-Berth/Polars_TA/blob/main/
 uv run python examples/quickstart.py
 ```
 
+## Beyond retail indicators: professional microstructure features
+
+Alongside the standard retail indicator set, `polars_ta.microstructure` and `polars_ta.quant` include order-flow and regime-detection tools used on professional trading desks — VPIN, Kyle's/Hasbrouck's lambda, Roll's implied spread, Yang-Zhang volatility, and a multi-scale Hurst regime ribbon:
+
+```python
+from polars_ta import microstructure, quant
+
+out = df.with_columns(
+    microstructure.vpin("close", "volume", bucket_size=500, window=20).alias("vpin"),
+    quant.yang_zhang_volatility("open", "high", "low", "close").alias("yz_vol"),
+    **quant.hurst_ribbon("close"),
+)
+```
+
+These are explained in more depth in [Concepts → retail indicators vs. professional microstructure features](concepts.md#retail-indicators-vs-professional-microstructure-features), and visualized against real BTCUSDT data in [Examples → professional-desk regime dashboard](examples.md#professional-desk-regime-dashboard-on-real-btcusdt-data).
+
 ## Handling missing data
 
 Two independent tools exist for missing/invalid data:
