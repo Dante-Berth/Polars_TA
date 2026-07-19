@@ -23,6 +23,15 @@ Or install as a dependency in another project:
 uv add polars-ta-lib
 ```
 
+The few genuinely sequential indicators (notably VPIN's volume-bucketing loop)
+run a Numba-JIT-compiled kernel when the optional `speed` extra is installed,
+and fall back to an identical pure-Python loop otherwise — same output either
+way:
+
+```bash
+uv add "polars-ta-lib[speed]"
+```
+
 ## Quickstart
 
 ```python

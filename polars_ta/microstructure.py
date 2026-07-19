@@ -11,6 +11,70 @@ import math
 import numpy as np
 import polars as pl
 
+# Numba is an optional accelerator (`pip install polars-ta-lib[speed]`). When
+# present, the sequential VPIN volume-bucketing loop is JIT-compiled; when
+# absent we fall back to the identical pure-Python loop. Output is byte-for-byte
+# the same either way — numba only changes how fast the loop runs.
+try:
+    from numba import njit
+
+    _HAS_NUMBA = True
+except ImportError:  # pragma: no cover - exercised only without the extra
+    _HAS_NUMBA = False
+
+    def njit(*args, **kwargs):  # type: ignore[misc]
+        """No-op stand-in so the kernel stays importable without numba."""
+
+        def _decorator(fn):
+            return fn
+
+        if args and callable(args[0]):
+            return args[0]
+        return _decorator
+
+
+@njit(cache=True)
+def _vpin_bucketing(vol, buy_frac, bucket_size):
+    """Sequential volume-bucketing accumulator (the one genuinely serial step).
+
+    Walks bars in order, splitting each bar's classified buy/sell volume into
+    equal-sized volume buckets (a bar's volume may straddle a bucket boundary).
+    Returns per-bucket buy/sell totals plus, for each bar, the index of the
+    bucket it fell into (-1 while the trailing bucket is still filling).
+    """
+    n = len(vol)
+    bucket_idx = np.full(n, -1, dtype=np.int64)
+    buckets_buy = np.empty(n, dtype=np.float64)
+    buckets_sell = np.empty(n, dtype=np.float64)
+
+    remaining = float(bucket_size)
+    buy_acc = 0.0
+    sell_acc = 0.0
+    cur_bucket = 0
+
+    for i in range(n):
+        v = vol[i]
+        total_v = v
+        buy_v = v * buy_frac[i]
+        sell_v = v - buy_v
+        while v > 0.0:
+            take = v if v < remaining else remaining
+            frac = take / total_v if total_v > 0.0 else 0.0
+            buy_acc += buy_v * frac
+            sell_acc += sell_v * frac
+            remaining -= take
+            v -= take
+            bucket_idx[i] = cur_bucket
+            if remaining <= 0.0:
+                buckets_buy[cur_bucket] = buy_acc
+                buckets_sell[cur_bucket] = sell_acc
+                buy_acc = 0.0
+                sell_acc = 0.0
+                remaining = float(bucket_size)
+                cur_bucket += 1
+
+    return buckets_buy[:cur_bucket], buckets_sell[:cur_bucket], bucket_idx
+
 
 def roll_spread(close: str | pl.Expr, window: int = 20) -> pl.Expr:
     """Roll (1984) implied bid-ask spread from serial covariance of price changes.
@@ -150,56 +214,45 @@ def vpin(
         # Standard normal CDF via erf (bulk volume classification, Easley et al.)
         buy_frac = 0.5 * (1.0 + np.vectorize(math.erf)(z / math.sqrt(2.0)))
 
-        buckets_buy: list[float] = []
-        buckets_sell: list[float] = []
-        remaining = bucket_size
-        buy_acc = 0.0
-        sell_acc = 0.0
-        bucket_idx = np.full(n, -1, dtype=np.int64)
+        # The volume-bucketing accumulator is the one genuinely sequential
+        # step; hand it to the (optionally Numba-compiled) kernel. Everything
+        # around it — classification above, rolling mean below — is vectorized.
+        buy_arr, sell_arr, bucket_idx = _vpin_bucketing(
+            np.ascontiguousarray(vol, dtype=np.float64),
+            np.ascontiguousarray(buy_frac, dtype=np.float64),
+            float(bucket_size),
+        )
 
-        cur_bucket = 0
-        for i in range(n):
-            v = vol[i]
-            buy_v = v * buy_frac[i]
-            sell_v = v - buy_v
-            while v > 0:
-                take = min(v, remaining)
-                frac = take / vol[i] if vol[i] > 0 else 0.0
-                buy_acc += buy_v * frac
-                sell_acc += sell_v * frac
-                remaining -= take
-                v -= take
-                bucket_idx[i] = cur_bucket
-                if remaining <= 0:
-                    buckets_buy.append(buy_acc)
-                    buckets_sell.append(sell_acc)
-                    buy_acc, sell_acc = 0.0, 0.0
-                    remaining = bucket_size
-                    cur_bucket += 1
-
-        if not buckets_buy:
+        if len(buy_arr) == 0:
             return pl.Series([None] * n, dtype=pl.Float64)
 
-        buy_arr = np.array(buckets_buy)
-        sell_arr = np.array(buckets_sell)
         imbalance = np.abs(buy_arr - sell_arr)
         total = buy_arr + sell_arr
         safe_total = np.where(total == 0, np.nan, total)
         oi = imbalance / safe_total
 
+        # Trailing rolling mean over the last `window` buckets, ignoring
+        # zero-total buckets (NaN in `oi`) — vectorized via a sliding-window
+        # view instead of a per-bucket Python loop. The first window-1 buckets
+        # stay NaN (not enough history yet).
         vpin_buckets = np.full(len(oi), np.nan)
-        for i in range(len(oi)):
-            if i + 1 >= window:
-                vpin_buckets[i] = np.nanmean(oi[i + 1 - window : i + 1])
+        if len(oi) >= window:
+            windows = np.lib.stride_tricks.sliding_window_view(oi, window)
+            with np.errstate(invalid="ignore"):
+                means = np.where(
+                    np.isnan(windows).all(axis=1),
+                    np.nan,
+                    np.nanmean(windows, axis=1),
+                )
+            vpin_buckets[window - 1 :] = means
 
-        # Broadcast each bucket's VPIN back onto its member bars. Bars in the
-        # trailing, not-yet-filled bucket get a null (consistent with how
-        # every other indicator signals "not enough data yet").
+        # Broadcast each bucket's VPIN back onto its member bars via fancy
+        # indexing. Bars in the trailing, not-yet-filled bucket carry
+        # bucket_idx == -1 and stay null (how every indicator signals "not
+        # enough data yet").
         out = np.full(n, np.nan)
-        for i in range(n):
-            b = bucket_idx[i]
-            if 0 <= b < len(vpin_buckets):
-                out[i] = vpin_buckets[b]
+        valid = (bucket_idx >= 0) & (bucket_idx < len(vpin_buckets))
+        out[valid] = vpin_buckets[bucket_idx[valid]]
         return pl.Series(out, dtype=pl.Float64).fill_nan(None)
 
     expr = pl.struct([close.alias("close"), volume.alias("volume")]).map_batches(
