@@ -66,6 +66,22 @@ def test_volatility_z_score_runs(df):
     assert out.is_finite().all()
 
 
+def test_parkinson_volatility_positive(df):
+    out = df.select(
+        quant.parkinson_volatility("high", "low").alias("v")
+    )["v"].drop_nulls()
+    assert len(out) > 0
+    assert (out > 0).all()
+
+
+def test_rogers_satchell_volatility_nonnegative(df):
+    out = df.select(
+        quant.rogers_satchell_volatility("open", "high", "low", "close").alias("v")
+    )["v"].drop_nulls()
+    assert len(out) > 0
+    assert (out >= 0).all()
+
+
 def test_quant_features_streaming_equivalence(df):
     lf = df.lazy().with_columns(
         quant.yang_zhang_volatility("open", "high", "low", "close").alias("yz"),

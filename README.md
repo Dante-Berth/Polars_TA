@@ -54,8 +54,8 @@ uv run python examples/quickstart.py
 | `polars_ta.volatility` | ATR, Bollinger Bands, Keltner Channel, Donchian Channel, Ulcer Index |
 | `polars_ta.volume` | ADI, OBV, Chaikin Money Flow, Force Index, Ease of Movement, VPT, NVI, Money Flow Index, VWAP |
 | `polars_ta.others` | Daily return, daily log return, cumulative return |
-| `polars_ta.quant` | Garman-Klass & Yang-Zhang volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity, multi-scale Hurst ribbon, relative volume, volatility z-score |
-| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Hurst exponent (R/S), Lo-MacKinlay variance ratio |
+| `polars_ta.quant` | Garman-Klass, Parkinson, Rogers-Satchell & Yang-Zhang volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity, multi-scale Hurst ribbon, relative volume, volatility z-score |
+| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Corwin-Schultz high-low spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Hurst exponent (R/S), half-life of mean reversion, Lo-MacKinlay variance ratio |
 
 Every function also has an equivalent `staticmethod` on a `*Indicators` class (`MomentumIndicators`, `TrendIndicators`, `VolatilityIndicators`, `VolumeIndicators`) if you prefer namespaced access.
 

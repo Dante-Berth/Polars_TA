@@ -84,6 +84,36 @@ def test_hurst_ordering_across_regimes():
     assert h_mr < h_tr
 
 
+def test_corwin_schultz_nonnegative():
+    rng = np.random.default_rng(7)
+    n = 1000
+    close = 100 + np.cumsum(rng.normal(0, 1, n))
+    high = close + rng.uniform(0.1, 1.0, n)
+    low = close - rng.uniform(0.1, 1.0, n)
+    df = pl.DataFrame({"high": high, "low": low})
+    out = df.select(ms.corwin_schultz_spread("high", "low").alias("v"))[
+        "v"
+    ].drop_nulls()
+    assert len(out) > 0
+    assert (out >= 0).all()
+
+
+def test_half_life_positive_for_mean_reverting():
+    rng = np.random.default_rng(5)
+    n = 3000
+    p = np.zeros(n)
+    for i in range(1, n):
+        # Strongly mean-reverting OU around 100.
+        p[i] = p[i - 1] + 0.2 * (100 - p[i - 1]) + rng.normal(0, 0.5)
+    out = (
+        pl.DataFrame({"close": p})
+        .select(ms.half_life("close", window=120).alias("v"))["v"]
+        .drop_nulls()
+    )
+    assert len(out) > 0
+    assert (out > 0).all()
+
+
 def test_vpin_bounded(df):
     out = df.select(
         ms.vpin("close", "volume", bucket_size=50_000, window=10).alias("v")

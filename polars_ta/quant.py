@@ -80,6 +80,54 @@ def historical_volatility(close: str, window: int = 21) -> pl.Expr:
     return hv.alias(f"hist_vol_{window}")
 
 
+def parkinson_volatility(
+    high: str, low: str, window: int = 20, trading_periods: int = 252
+) -> pl.Expr:
+    """Parkinson (1980) high-low range volatility estimator, annualized.
+
+    Uses only the intraday high-low range, which makes it far more efficient
+    than close-to-close historical volatility (it exploits the whole bar, not
+    just the endpoints). It assumes no drift and no overnight jumps, so it
+    complements Garman-Klass and Yang-Zhang rather than replacing them.
+    """
+    h, lo = pl.col(high), pl.col(low)
+    factor = 1.0 / (4.0 * math.log(2.0))
+    park_var = (factor * (h / lo).log().pow(2)).rolling_mean(window_size=window)
+    return (park_var.sqrt() * math.sqrt(trading_periods)).alias(
+        f"parkinson_vol_{window}"
+    )
+
+
+def rogers_satchell_volatility(
+    open_price: str,
+    high: str,
+    low: str,
+    close: str,
+    window: int = 20,
+    trading_periods: int = 252,
+) -> pl.Expr:
+    """Rogers-Satchell (1991) volatility estimator, annualized.
+
+    Unlike Parkinson and Garman-Klass, this estimator is unbiased in the
+    presence of a non-zero drift, using all four OHLC prices. It does not
+    account for overnight gaps (that is what Yang-Zhang adds on top), so it is
+    the natural mid-point of the OHLC-volatility family.
+    """
+    o, h, lo, c = (
+        pl.col(open_price),
+        pl.col(high),
+        pl.col(low),
+        pl.col(close),
+    )
+    log_ho = (h / o).log()
+    log_hc = (h / c).log()
+    log_lo = (lo / o).log()
+    log_lc = (lo / c).log()
+    rs = log_ho * log_hc + log_lo * log_lc
+    rs_var = rs.rolling_mean(window_size=window)
+    return (rs_var.sqrt() * math.sqrt(trading_periods)).alias(f"rs_vol_{window}")
+
+
 def yang_zhang_volatility(
     open_price: str,
     high: str,

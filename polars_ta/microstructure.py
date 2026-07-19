@@ -208,6 +208,45 @@ def vpin(
     return expr.alias(f"vpin_{bucket_size}_{window}")
 
 
+def _hurst_from_window(x: np.ndarray) -> float:
+    """Rescaled-range (R/S) Hurst exponent for a single 1-D window of returns."""
+    x = x[~np.isnan(x)]
+    n = len(x)
+    if n < 20:
+        return float("nan")
+
+    # Classic R/S analysis: split the return series into sub-windows of
+    # increasing size, and regress log(R/S) on log(window size). The slope
+    # of that regression is the Hurst exponent.
+    max_chunk = n // 2
+    chunk_sizes = sorted(
+        {int(s) for s in np.unique(np.geomspace(8, max_chunk, num=10).astype(int))}
+    )
+
+    log_sizes = []
+    log_rs = []
+    for chunk in chunk_sizes:
+        n_chunks = n // chunk
+        if n_chunks < 1:
+            continue
+        # Vectorize over all non-overlapping chunks at once instead of a
+        # Python loop per chunk: reshape into (n_chunks, chunk) and reduce
+        # along the last axis.
+        trimmed = x[: n_chunks * chunk].reshape(n_chunks, chunk)
+        dev = np.cumsum(trimmed - trimmed.mean(axis=1, keepdims=True), axis=1)
+        r = dev.max(axis=1) - dev.min(axis=1)
+        s_dev = trimmed.std(axis=1)
+        mask = s_dev > 0
+        if mask.any():
+            log_sizes.append(np.log(chunk))
+            log_rs.append(np.log(np.mean(r[mask] / s_dev[mask])))
+
+    if len(log_sizes) < 2:
+        return float("nan")
+
+    return float(np.polyfit(log_sizes, log_rs, 1)[0])
+
+
 def hurst_exponent(close: str | pl.Expr, window: int = 100) -> pl.Expr:
     """Rolling Hurst exponent via rescaled-range (R/S) analysis.
 
@@ -215,51 +254,28 @@ def hurst_exponent(close: str | pl.Expr, window: int = 100) -> pl.Expr:
     H > 0.5 a trending/persistent regime. Quant desks use this to switch
     strategy family (momentum vs mean-reversion) rather than as a trade
     signal by itself.
+
+    Implemented with a single ``map_batches`` pass and a sliding-window view
+    (no per-row Python ``rolling_map``): each window's R/S regression is
+    computed over NumPy-reshaped chunks, so cost is dominated by vectorized
+    array ops rather than an O(window) Python loop per row.
     """
     close = pl.col(close) if isinstance(close, str) else close
     log_ret = (close / close.shift(1)).log()
 
-    def _calc_hurst(s: pl.Series) -> float:
+    def _rolling_hurst(s: pl.Series) -> pl.Series:
         x = s.to_numpy()
-        x = x[~np.isnan(x)]
         n = len(x)
-        if n < 20:
-            return float("nan")
+        out = np.full(n, np.nan)
+        if n < window:
+            return pl.Series(out, dtype=pl.Float64).fill_nan(None)
+        # Sliding windows as a zero-copy view; evaluate R/S per window.
+        views = np.lib.stride_tricks.sliding_window_view(x, window)
+        for i in range(views.shape[0]):
+            out[window - 1 + i] = _hurst_from_window(views[i])
+        return pl.Series(out, dtype=pl.Float64).fill_nan(None)
 
-        # Classic R/S analysis: split the return series into sub-windows of
-        # increasing size, and regress log(R/S) on log(window size). The
-        # slope of that regression is the Hurst exponent.
-        max_chunk = n // 2
-        chunk_sizes = sorted(
-            {int(s) for s in np.unique(np.geomspace(8, max_chunk, num=10).astype(int))}
-        )
-
-        log_sizes = []
-        log_rs = []
-        for chunk in chunk_sizes:
-            n_chunks = n // chunk
-            if n_chunks < 1:
-                continue
-            rs_vals = []
-            for i in range(n_chunks):
-                segment = x[i * chunk : (i + 1) * chunk]
-                mean = segment.mean()
-                deviation = np.cumsum(segment - mean)
-                r = deviation.max() - deviation.min()
-                s_dev = segment.std()
-                if s_dev > 0:
-                    rs_vals.append(r / s_dev)
-            if rs_vals:
-                log_sizes.append(np.log(chunk))
-                log_rs.append(np.log(np.mean(rs_vals)))
-
-        if len(log_sizes) < 2:
-            return float("nan")
-
-        slope = np.polyfit(log_sizes, log_rs, 1)[0]
-        return float(slope)
-
-    return log_ret.rolling_map(_calc_hurst, window_size=window).alias(
+    return log_ret.map_batches(_rolling_hurst, returns_scalar=False).alias(
         f"hurst_{window}"
     )
 
@@ -284,3 +300,67 @@ def variance_ratio(close: str | pl.Expr, window: int = 20, lag: int = 2) -> pl.E
     safe_var_1 = pl.when(var_1 == 0).then(None).otherwise(var_1)
     vr = var_lag / (lag * safe_var_1)
     return vr.alias(f"variance_ratio_{lag}_{window}")
+
+
+def corwin_schultz_spread(
+    high: str | pl.Expr, low: str | pl.Expr, window: int = 20
+) -> pl.Expr:
+    """Corwin-Schultz (2012) high-low bid-ask spread estimator.
+
+    Recovers the effective spread from two consecutive daily high-low ranges
+    only (no volume, no quotes). The insight is that the high-low range
+    reflects both the true variance (which scales with the time interval) and
+    the spread (which does not), so combining a single-bar range with a
+    two-bar range separates the two. This is the modern successor to Roll's
+    estimator and is far more robust on OHLC bar data; negative per-bar
+    estimates (which the model treats as zero spread) are floored at zero and
+    the result is averaged over ``window`` bars.
+    """
+    high = pl.col(high) if isinstance(high, str) else high
+    low = pl.col(low) if isinstance(low, str) else low
+
+    # beta: sum of two consecutive single-bar squared log high/low ranges.
+    hl = (high / low).log().pow(2)
+    beta = hl + hl.shift(1)
+
+    # gamma: squared log range over the two-bar high and two-bar low.
+    high2 = pl.max_horizontal(high, high.shift(1))
+    low2 = pl.min_horizontal(low, low.shift(1))
+    gamma = (high2 / low2).log().pow(2)
+
+    denom = 3.0 - 2.0 * math.sqrt(2.0)
+    alpha = (beta.sqrt() * (math.sqrt(2.0) - 1.0) / denom) - (gamma / denom).sqrt()
+
+    # Spread as a fraction of price; negative alpha -> zero spread.
+    ea = alpha.exp()
+    spread = 2.0 * (ea - 1.0) / (1.0 + ea)
+    spread = pl.when(spread < 0).then(0.0).otherwise(spread)
+    return spread.rolling_mean(window_size=window).alias(f"corwin_schultz_{window}")
+
+
+def half_life(close: str | pl.Expr, window: int = 60) -> pl.Expr:
+    """Half-life of mean reversion from a rolling Ornstein-Uhlenbeck fit.
+
+    Regresses the change in price on the lagged price level within each
+    window (an AR(1) / discretized OU fit): ``dP_t = a + b * P_{t-1}``. When
+    ``b < 0`` the series is mean-reverting and the half-life — the expected
+    number of bars to close half the gap to the mean — is ``-ln(2) / ln(1+b)``.
+    Non-mean-reverting windows (``b >= 0``) are reported as null. This is the
+    workhorse "how fast does it revert" number on stat-arb desks, pairing
+    naturally with :func:`variance_ratio` and :func:`hurst_exponent`.
+    """
+    close = pl.col(close) if isinstance(close, str) else close
+    y = close.diff(1)  # dP_t
+    x = close.shift(1)  # P_{t-1}
+
+    mx = x.rolling_mean(window_size=window)
+    my = y.rolling_mean(window_size=window)
+    cov = ((x - mx) * (y - my)).rolling_mean(window_size=window)
+    var = ((x - mx) ** 2).rolling_mean(window_size=window)
+
+    safe_var = pl.when(var == 0).then(None).otherwise(var)
+    b = cov / safe_var
+    # Only mean-reverting fits (b in (-1, 0)) yield a finite positive half-life.
+    valid = (b < 0) & (b > -1)
+    hl = pl.when(valid).then(-math.log(2) / (1.0 + b).log()).otherwise(None)
+    return hl.alias(f"half_life_{window}")
