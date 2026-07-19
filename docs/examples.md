@@ -24,7 +24,7 @@ uv run python examples/plot_classic_indicators.py
 
 ![BTCUSDT classic indicators: price with Bollinger Bands and SMA, RSI, MACD, and ATR](assets/classic_indicators.png)
 
-### Reading the four panels
+### Reading the classic panels
 
 **Panel 1 — Price, Bollinger Bands (20, 2) and a 50-bar SMA.** [`volatility.bollinger_hband`/`bollinger_lband`](api.md#polars_ta.volatility.bollinger_hband) draw the ±2σ envelope around the 20-bar moving average; price tagging or piercing a band flags a stretched move relative to recent volatility. The orange [`trend.sma_indicator`](api.md#polars_ta.trend.sma_indicator) is the slower trend reference.
 
@@ -33,6 +33,46 @@ uv run python examples/plot_classic_indicators.py
 **Panel 3 — MACD (12/26/9).** [`trend.macd`](api.md#polars_ta.trend.macd), its signal line, and the histogram ([`macd_diff`](api.md#polars_ta.trend.macd_diff)). Histogram bars are colored by sign *and* positioned above/below zero, so the momentum cross reads without relying on color.
 
 **Panel 4 — ATR (14).** [`volatility.average_true_range`](api.md#polars_ta.volatility.average_true_range), the standard volatility-of-range measure used for stop placement and position sizing.
+
+## Trend & volume toolkit on real BTCUSDT data
+
+[`examples/plot_trend_volume.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_trend_volume.py) plots the trend/volume family on the same fixture.
+
+```bash
+uv run python examples/plot_trend_volume.py
+```
+
+![BTCUSDT trend and volume: price with Ichimoku cloud, ADX with +DI/-DI, Aroon oscillator, and OBV](assets/trend_volume.png)
+
+### Reading the trend & volume panels
+
+**Panel 1 — Price with the Ichimoku cloud.** [`trend.ichimoku_a`/`ichimoku_b`](api.md#polars_ta.trend.ichimoku_a) form the "kumo" cloud; price above the cloud is bullish context, below is bearish, and the cloud is shaded green/red by which span leads.
+
+**Panel 2 — ADX (14) with directional indicators.** [`trend.adx`](api.md#polars_ta.trend.adx) measures trend *strength* (values above the dashed 25 line mark a trending market), while [`adx_pos`/`adx_neg`](api.md#polars_ta.trend.adx_pos) (+DI / -DI) give its direction.
+
+**Panel 3 — Aroon oscillator (25).** The difference of [`aroon_up`](api.md#polars_ta.trend.aroon_up) and [`aroon_down`](api.md#polars_ta.trend.aroon_down), shaded by sign — positive (green) when up-trend momentum dominates, negative (purple) when down-trend does. (The raw up/down lines whip too fast to read over 5,000 bars, so the oscillator is shown instead.)
+
+**Panel 4 — On-Balance Volume.** [`volume.on_balance_volume`](api.md#polars_ta.volume.on_balance_volume) accumulates signed volume; its slope confirms or diverges from price moves.
+
+## Liquidity & microstructure toolkit on real BTCUSDT data
+
+[`examples/plot_liquidity.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_liquidity.py) visualizes the professional-desk liquidity features on the same fixture.
+
+```bash
+uv run python examples/plot_liquidity.py
+```
+
+![BTCUSDT liquidity: price, Roll vs Corwin-Schultz spread, Kyle's lambda, and mean-reversion half-life](assets/liquidity.png)
+
+### Reading the liquidity panels
+
+**Panel 1 — Price.** Reference for the three microstructure panels below.
+
+**Panel 2 — Spread estimators.** [`microstructure.roll_spread`](api.md#polars_ta.microstructure.roll_spread) (from serial covariance of price changes) versus [`corwin_schultz_spread`](api.md#polars_ta.microstructure.corwin_schultz_spread) (from consecutive high-low ranges), both in USDT — Corwin-Schultz is the smoother, more robust estimate on bar data while Roll is noisier and drops out when its covariance premise fails.
+
+**Panel 3 — Kyle's lambda.** [`microstructure.kyle_lambda`](api.md#polars_ta.microstructure.kyle_lambda) is price impact per unit of signed order flow — higher means thinner, less liquid conditions where a given order moves price more.
+
+**Panel 4 — Half-life of mean reversion.** [`microstructure.half_life`](api.md#polars_ta.microstructure.half_life) from a rolling Ornstein-Uhlenbeck fit: single-digit bars mean fast reversion, and the tall spikes are windows where reversion breaks down and the half-life diverges (the axis is capped at 300 bars so the fast-reverting structure stays legible).
 
 ## Professional-desk regime dashboard on real BTCUSDT data
 

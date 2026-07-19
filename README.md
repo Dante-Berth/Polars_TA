@@ -58,6 +58,10 @@ The classic retail toolkit — Bollinger Bands, RSI, MACD and ATR — plotted on
 
 ![BTCUSDT classic indicators: price with Bollinger Bands and SMA, RSI, MACD, and ATR](docs/assets/classic_indicators.png)
 
+The trend & volume toolkit — Ichimoku cloud, ADX with +DI/-DI, Aroon oscillator and OBV — via [examples/plot_trend_volume.py](examples/plot_trend_volume.py):
+
+![BTCUSDT trend and volume: price with Ichimoku cloud, ADX, Aroon oscillator, and OBV](docs/assets/trend_volume.png)
+
 ## Modules
 
 | Module | Contents |
@@ -114,6 +118,10 @@ uv run python examples/plot_regime_dashboard.py
 Renders a 3-panel dashboard (price, Hurst-ribbon regime shading, Yang-Zhang volatility + VPIN) to `examples/regime_dashboard.png` — a visual sanity check a human can actually read, not just a table of numbers.
 
 ![BTCUSDT regime dashboard: price, Hurst-ribbon regime shading, Yang-Zhang volatility and VPIN](docs/assets/regime_dashboard.png)
+
+The liquidity/microstructure toolkit — Roll vs Corwin-Schultz spread, Kyle's lambda and mean-reversion half-life — via [examples/plot_liquidity.py](examples/plot_liquidity.py):
+
+![BTCUSDT liquidity: price, Roll vs Corwin-Schultz spread, Kyle's lambda, and mean-reversion half-life](docs/assets/liquidity.png)
 
 ## Documentation site
 
