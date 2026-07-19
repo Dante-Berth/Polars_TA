@@ -1,8 +1,11 @@
 # Polars TA
 
 [![CI](https://github.com/Dante-Berth/Polars_TA/actions/workflows/ci.yml/badge.svg)](https://github.com/Dante-Berth/Polars_TA/actions/workflows/ci.yml)
+[![Docs](https://github.com/Dante-Berth/Polars_TA/actions/workflows/docs.yml/badge.svg)](https://github.com/Dante-Berth/Polars_TA/actions/workflows/docs.yml)
 
 Technical analysis indicators built on [Polars](https://pola.rs) expressions instead of pandas.
+
+📖 **Full documentation:** <https://dante-berth.github.io/Polars_TA/>
 
 Every indicator is a plain `pl.Expr`, so it composes naturally with `.with_columns(...)`, works on both `DataFrame` and `LazyFrame`, and runs on Polars' multithreaded, vectorized engine — no row-by-row Python loops (aside from a couple of genuinely recursive indicators like KAMA and PSAR, which use `map_batches`).
 
@@ -85,3 +88,14 @@ uv run python benchmarks/bench_indicators.py
 ```
 
 Times a bundle of ~12 indicators across eager, lazy, and streaming Polars engines at 10K/100K/1M rows.
+
+## Documentation site
+
+The docs at <https://dante-berth.github.io/Polars_TA/> are built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) + [mkdocstrings](https://mkdocstrings.github.io/), following the [Diátaxis](https://diataxis.fr/) framework (getting started / concepts / how-to guides / examples / API reference), and deploy automatically to GitHub Pages on every push to `main` via `.github/workflows/docs.yml`.
+
+To preview locally:
+
+```bash
+uv sync --extra docs
+uv run mkdocs serve
+```

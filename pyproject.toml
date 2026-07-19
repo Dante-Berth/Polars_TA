@@ -17,6 +17,13 @@ classifiers = [
 ]
 dependencies = ["polars>=1.0", "numpy>=1.24"]
 
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=7.0",

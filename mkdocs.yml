@@ -1,0 +1,66 @@
+site_name: Polars TA
+site_description: Technical analysis indicators built on Polars expressions instead of pandas
+site_url: https://dante-berth.github.io/Polars_TA/
+repo_name: Dante-Berth/Polars_TA
+repo_url: https://github.com/Dante-Berth/Polars_TA
+
+nav:
+  - Home: index.md
+  - Getting started: getting_started.md
+  - Concepts: concepts.md
+  - How-to guides: how_to_guides.md
+  - Examples: examples.md
+  - API reference: api.md
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.snippets:
+      base_path: "."
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            merge_init_into_class: true
+
+extra_css:
+  - stylesheets/extra.css
+
+validation:
+  links:
+    absolute_links: relative_to_docs
+    unrecognized_links: warn
