@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-19
+
 ### Fixed
 
 - **`trend.adx` returned all-NaN on real data.** `adx`, `adx_pos`, and `adx_neg`
