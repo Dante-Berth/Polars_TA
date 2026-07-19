@@ -5,7 +5,7 @@
 
 Technical analysis indicators built on [Polars](https://pola.rs) expressions instead of pandas — including retail-standard indicators (RSI, MACD, Bollinger Bands, ...) *and* the market-microstructure/order-flow toolkit used on professional trading desks (VPIN, Kyle's lambda, Roll's spread, Yang-Zhang volatility, multi-scale Hurst regime detection).
 
-📖 **Full documentation:** <https://dante-berth.github.io/Polars_TA/>
+📖 **Full documentation:** <https://dante-berth.github.io/Polars_TA/> — see the [changelog](CHANGELOG.md) for notable changes.
 
 Every indicator is a plain `pl.Expr`, so it composes naturally with `.with_columns(...)`, works on both `DataFrame` and `LazyFrame`, and runs on Polars' multithreaded, vectorized engine — no row-by-row Python loops (aside from a couple of genuinely recursive indicators like KAMA and PSAR, which use `map_batches`).
 

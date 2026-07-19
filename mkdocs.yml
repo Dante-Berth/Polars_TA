@@ -11,6 +11,7 @@ nav:
   - How-to guides: how_to_guides.md
   - Examples: examples.md
   - API reference: api.md
+  - Changelog: changelog.md
 
 theme:
   name: material
