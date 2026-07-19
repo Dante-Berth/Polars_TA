@@ -13,6 +13,11 @@ authors = [{ name = "Dante-Berth" }]
 keywords = ["polars", "technical-analysis", "trading", "finance", "indicators"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = ["polars>=1.0", "numpy>=1.24"]
@@ -29,12 +34,16 @@ docs = [
 dev = [
     "matplotlib>=3.10.9",
     "pytest>=7.0",
+    "pytest-cov>=5.0",
     "ruff>=0.15.22",
     "hypothesis>=6.0",
 ]
 
 [tool.setuptools]
 packages = ["polars_ta"]
+
+[tool.setuptools.package-data]
+polars_ta = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

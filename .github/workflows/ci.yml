@@ -26,4 +26,4 @@ jobs:
         run: uv run ruff check .
 
       - name: Test
-        run: uv run pytest
+        run: uv run pytest --cov=polars_ta --cov-report=term-missing

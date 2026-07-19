@@ -87,6 +87,7 @@ Utilities:
 - Every indicator takes a `fillna: bool = False` flag. When `True`, gaps are forward-filled (and back-filled/defaulted at the start) instead of left as nulls.
 - Indicators are pure expressions with no side effects — nothing is evaluated until you call `.collect()` or use them inside `.with_columns(...)`.
 - Every indicator also works with Polars' [streaming engine](https://docs.pola.rs/user-guide/lazy/streaming/) (`.collect(engine="streaming")`) for datasets larger than memory.
+- An indicator that needs `k` bars of history returns **null** for its first `k-1` rows (the warm-up) — never a fabricated number — and every indicator supports per-symbol computation on multi-asset frames via `.over("symbol")` with no state leaking across symbols (both properties are enforced by the test suite).
 
 ## Development
 
@@ -97,7 +98,12 @@ uv run ruff check .  # lint
 uv run ruff format . # format
 ```
 
-`tests/test_reference.py` cross-checks a sample of indicators (RSI, SMA, ATR, Bollinger Bands) against independent NumPy reference implementations to catch numerical regressions.
+The test suite enforces four kinds of guarantee:
+
+- `tests/test_reference.py` — cross-checks indicators (RSI, EMA, MACD, SMA, ATR, ADX, Bollinger Bands, Stochastic, Williams %R, ROC, CCI, OBV, MFI) against independent NumPy reference implementations.
+- `tests/test_properties.py` — Hypothesis property tests: length preservation, no NaN/inf leakage, and causality (no lookahead).
+- `tests/test_multi_asset.py` — `.over("symbol")` on a multi-asset frame matches computing each symbol separately.
+- `tests/test_warmup.py` — warm-up rows are null (never fabricated values), and no nulls appear after warm-up on clean data.
 
 ## Benchmarks
 

@@ -168,7 +168,11 @@ class MomentumIndicators:
         er_num = (close - close.shift(window)).abs()
         er_den = vol.rolling_sum(window_size=window, min_samples=min_periods)
 
-        efficiency_ratio = pl.when(er_den != 0).then(er_num / er_den).otherwise(0.0)
+        # Guard only the true zero-denominator case; a *null* denominator means
+        # "warm-up, not enough data yet" and must stay null (an `otherwise(0.0)`
+        # here would fabricate a smoothing constant and start the KAMA
+        # recursion at bar 0 with no history).
+        efficiency_ratio = pl.when(er_den == 0).then(0.0).otherwise(er_num / er_den)
 
         fast_alpha = 2.0 / (pow1 + 1.0)
         slow_alpha = 2.0 / (pow2 + 1.0)

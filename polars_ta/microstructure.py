@@ -51,8 +51,11 @@ def _vpin_bucketing(vol, buy_frac, bucket_size):
     """
     n = len(vol)
     bucket_idx = np.full(n, -1, dtype=np.int64)
-    buckets_buy = np.empty(n, dtype=np.float64)
-    buckets_sell = np.empty(n, dtype=np.float64)
+    # A single bar can straddle (and fully fill) several buckets, so the number
+    # of buckets is bounded by total volume / bucket_size, not by n.
+    max_buckets = int(np.sum(vol) / bucket_size) + 2
+    buckets_buy = np.empty(max_buckets, dtype=np.float64)
+    buckets_sell = np.empty(max_buckets, dtype=np.float64)
 
     remaining = float(bucket_size)
     buy_acc = 0.0

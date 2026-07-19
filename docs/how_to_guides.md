@@ -12,6 +12,29 @@ lf = pl.scan_csv("ohlcv.csv")
 out = lf.with_columns(momentum.rsi("close")).collect()
 ```
 
+## Compute indicators per symbol on a multi-asset frame
+
+Every indicator is a plain expression, so per-symbol computation is just
+`.over("symbol")` — one expression, grouped execution, no state leaking across
+symbol boundaries (the first bars of one symbol never see another symbol's
+tail). This holds for all indicators, including the sequential
+`map_batches`-based ones (KAMA, PSAR, VPIN, Hurst), and is enforced by
+`tests/test_multi_asset.py`.
+
+```python
+import polars as pl
+from polars_ta import momentum, trend
+
+df = pl.read_parquet("all_symbols.parquet")  # columns: symbol, open, high, low, close, volume
+out = df.with_columns(
+    momentum.rsi("close").over("symbol").alias("rsi"),
+    trend.macd("close").over("symbol").alias("macd"),
+)
+```
+
+Warm-up nulls restart at each symbol boundary, exactly as if each symbol had
+been computed on its own frame.
+
 ## Run on data larger than memory (streaming)
 
 Pass `engine="streaming"` to `.collect()` — no changes to the indicator calls themselves:

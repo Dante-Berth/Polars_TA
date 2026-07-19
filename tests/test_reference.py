@@ -116,6 +116,11 @@ def _ref_adx(high, low, close, window: int = 14):
         din = np.where(s_tr == 0, 0.0, 100 * s_neg / s_tr)
         di_sum = dip + din
         dx = np.where(di_sum == 0, 0.0, 100 * np.abs(dip - din) / di_sum)
+    # The library surfaces the first window-1 bars as warm-up nulls, so the
+    # ADX recursion is seeded from the first post-warm-up DX value.
+    dip[: window - 1] = np.nan
+    din[: window - 1] = np.nan
+    dx[: window - 1] = np.nan
     adx = _wilder_ewm(dx, alpha)
     return adx, dip, din
 
@@ -201,4 +206,146 @@ def test_bollinger_matches_reference():
     for i in range(window - 1, len(close)):
         mstd[i] = close[i - window + 1 : i + 1].std(ddof=0)
     ref = mavg + window_dev * mstd
+    _compare(ours, ref, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# EMA / MACD
+# ---------------------------------------------------------------------------
+
+
+def _ref_ema(x: np.ndarray, span: int) -> np.ndarray:
+    """EMA matching Polars ewm_mean(span=..., adjust=False): recursion starts
+    at index 0, alpha = 2/(span+1)."""
+    alpha = 2.0 / (span + 1.0)
+    out = np.empty(len(x))
+    out[0] = x[0]
+    for i in range(1, len(x)):
+        out[i] = alpha * x[i] + (1 - alpha) * out[i - 1]
+    return out
+
+
+def test_ema_matches_reference():
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    ours = df.select(trend.ema_indicator("close", window=12).alias("v"))["v"].to_numpy()
+    ref = _ref_ema(close, 12)
+    ref[:11] = np.nan  # library masks the first window-1 values
+    _compare(ours, ref, atol=1e-9)
+
+
+def test_macd_matches_reference():
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    ours = df.select(trend.macd("close").alias("v"))["v"].to_numpy()
+    ref = _ref_ema(close, 12) - _ref_ema(close, 26)
+    ref[:25] = np.nan
+    _compare(ours, ref, atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# OBV / MFI (volume-based)
+# ---------------------------------------------------------------------------
+
+
+def test_obv_matches_reference():
+    from polars_ta import volume as vol_mod
+
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    volume_arr = df["volume"].to_numpy()
+    ours = df.select(vol_mod.on_balance_volume("close", "volume").alias("v"))[
+        "v"
+    ].to_numpy()
+
+    step = np.where(np.diff(close, prepend=close[0]) < 0, -volume_arr, volume_arr)
+    ref = np.cumsum(step)
+    _compare(ours, ref, atol=1e-6)
+
+
+def test_mfi_matches_reference():
+    from polars_ta import volume as vol_mod
+
+    df = _make_ohlcv()
+    high, low, close = (df[c].to_numpy() for c in ("high", "low", "close"))
+    volume_arr = df["volume"].to_numpy()
+    window = 14
+    ours = df.select(
+        vol_mod.money_flow_index("high", "low", "close", "volume", window).alias("v")
+    )["v"].to_numpy()
+
+    tp = (high + low + close) / 3.0
+    dtp = np.diff(tp, prepend=np.nan)
+    raw = tp * volume_arr
+    pos = np.where(dtp > 0, raw, 0.0)
+    neg = np.where(dtp < 0, raw, 0.0)
+    ref = np.full(len(tp), np.nan)
+    for i in range(window - 1, len(tp)):
+        p = pos[i - window + 1 : i + 1].sum()
+        n = neg[i - window + 1 : i + 1].sum()
+        if np.isnan(p) or np.isnan(n):
+            continue
+        ref[i] = 100.0 if n == 0 else 100.0 - 100.0 / (1.0 + p / n)
+    _compare(ours, ref, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Stochastic / Williams %R / ROC / CCI
+# ---------------------------------------------------------------------------
+
+
+def _rolling(x: np.ndarray, window: int, fn) -> np.ndarray:
+    out = np.full(len(x), np.nan)
+    for i in range(window - 1, len(x)):
+        out[i] = fn(x[i - window + 1 : i + 1])
+    return out
+
+
+def test_stoch_matches_reference():
+    df = _make_ohlcv()
+    high, low, close = (df[c].to_numpy() for c in ("high", "low", "close"))
+    window = 14
+    ours = df.select(momentum.stoch("high", "low", "close", window).alias("v"))[
+        "v"
+    ].to_numpy()
+    smin = _rolling(low, window, np.min)
+    smax = _rolling(high, window, np.max)
+    ref = 100.0 * (close - smin) / (smax - smin)
+    _compare(ours, ref, atol=1e-9)
+
+
+def test_williams_r_matches_reference():
+    df = _make_ohlcv()
+    high, low, close = (df[c].to_numpy() for c in ("high", "low", "close"))
+    lbp = 14
+    ours = df.select(momentum.williams_r("high", "low", "close", lbp).alias("v"))[
+        "v"
+    ].to_numpy()
+    hh = _rolling(high, lbp, np.max)
+    ll = _rolling(low, lbp, np.min)
+    ref = -100.0 * (hh - close) / (hh - ll)
+    _compare(ours, ref, atol=1e-9)
+
+
+def test_roc_matches_reference():
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    window = 12
+    ours = df.select(momentum.roc("close", window).alias("v"))["v"].to_numpy()
+    ref = np.full(len(close), np.nan)
+    ref[window:] = (close[window:] - close[:-window]) / close[:-window] * 100.0
+    _compare(ours, ref, atol=1e-9)
+
+
+def test_cci_matches_reference():
+    df = _make_ohlcv()
+    high, low, close = (df[c].to_numpy() for c in ("high", "low", "close"))
+    window, constant = 20, 0.015
+    ours = df.select(trend.cci("high", "low", "close", window).alias("v"))[
+        "v"
+    ].to_numpy()
+    tp = (high + low + close) / 3.0
+    sma = _rolling(tp, window, np.mean)
+    mad = _rolling(tp, window, lambda w: np.abs(w - w.mean()).mean())
+    ref = (tp - sma) / (constant * mad)
     _compare(ours, ref, atol=1e-6)

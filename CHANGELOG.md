@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`momentum.kama` and the `trend.adx` family reported fabricated values
+  during their warm-up window.** KAMA's efficiency-ratio guard turned the null
+  ("not enough data yet") denominator into `0.0`, starting the recursion at
+  bar 0 with no history; the ADX zero-denominator guard added in 0.2.0 used
+  `fill_null(0.0)`, which also filled warm-up nulls, so `adx`/`adx_pos`/
+  `adx_neg` reported from bar 0. All four now surface the first `window - 1`
+  rows as nulls, like every other indicator. Post-warm-up values are unchanged
+  for KAMA/`adx_pos`/`adx_neg`; `adx` values shift slightly because the Wilder
+  recursion is now seeded from the first post-warm-up DX value instead of
+  bar 1.
+- **`microstructure.vpin` crashed with `IndexError` when total volume exceeded
+  `bucket_size × n_bars`.** The per-bucket accumulators were sized by bar
+  count, but a single bar can fill several buckets. Buffers are now sized by
+  `total volume / bucket_size`.
+
+### Added
+
+- **Multi-asset guarantee:** every indicator (including the sequential
+  `map_batches`-based KAMA, PSAR, VPIN, and Hurst) works per-symbol via
+  `.over("symbol")` with no state leaking across symbols, enforced by a new
+  `tests/test_multi_asset.py` and documented in the how-to guides.
+- **Warm-up policy tests** (`tests/test_warmup.py`) pinning each indicator's
+  exact first-valid row: warm-up rows are null, never fabricated numbers, and
+  no nulls appear after warm-up on clean data.
+- Reference cross-checks for EMA, MACD, OBV, MFI, Stochastic %K, Williams %R,
+  ROC, and CCI against independent NumPy implementations.
+- The package now ships a `py.typed` marker, so type checkers see the
+  library's annotations; PyPI classifiers declare Python 3.10–3.13 support.
+- CI reports line coverage (`pytest-cov`).
+
 ## [0.2.0] - 2026-07-19
 
 ### Fixed

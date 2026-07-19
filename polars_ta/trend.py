@@ -482,7 +482,15 @@ class ComplexTrendIndicators:
         smoothed_pos_dm = pos_dm.ewm_mean(alpha=alpha, adjust=False)
         smoothed_neg_dm = neg_dm.ewm_mean(alpha=alpha, adjust=False)
 
-        return smoothed_pos_dm, smoothed_neg_dm, smoothed_tr
+        # Surface the warm-up ("fewer than `window` bars seen") as nulls, like
+        # every other indicator. `pl.int_range(pl.len())` is group-aware, so
+        # this stays correct under `.over("symbol")`.
+        warm = pl.int_range(pl.len()) < window - 1
+        return (
+            pl.when(warm).then(None).otherwise(smoothed_pos_dm),
+            pl.when(warm).then(None).otherwise(smoothed_neg_dm),
+            pl.when(warm).then(None).otherwise(smoothed_tr),
+        )
 
     @staticmethod
     def adx_pos(
@@ -500,8 +508,9 @@ class ComplexTrendIndicators:
         pos_dm, _, tr = ComplexTrendIndicators._adx_components(high, low, close, window)
         # A flat market has zero true range; report 0 directional strength there
         # rather than dividing by zero (which would leak inf/NaN).
-        safe_tr = pl.when(tr == 0).then(None).otherwise(tr)
-        dip = (100 * (pos_dm / safe_tr)).fill_null(0.0)
+        # Guard only tr == 0; a null tr is warm-up and must stay null (a
+        # fill_null here would fabricate a 0 reading with no history).
+        dip = pl.when(tr == 0).then(0.0).otherwise(100 * pos_dm / tr)
         return BaseIndicator.check_fillna(dip, fillna, value=20)
 
     @staticmethod
@@ -518,8 +527,7 @@ class ComplexTrendIndicators:
         close = pl.col(close) if isinstance(close, str) else close
 
         _, neg_dm, tr = ComplexTrendIndicators._adx_components(high, low, close, window)
-        safe_tr = pl.when(tr == 0).then(None).otherwise(tr)
-        din = (100 * (neg_dm / safe_tr)).fill_null(0.0)
+        din = pl.when(tr == 0).then(0.0).otherwise(100 * neg_dm / tr)
         return BaseIndicator.check_fillna(din, fillna, value=20)
 
     @staticmethod
@@ -541,8 +549,7 @@ class ComplexTrendIndicators:
         # When both +DI and -DI are zero (e.g. a flat market) DX is undefined;
         # treat it as zero directional movement instead of dividing by zero.
         di_sum = dip + din
-        safe_di_sum = pl.when(di_sum == 0).then(None).otherwise(di_sum)
-        dx = (100 * (dip - din).abs() / safe_di_sum).fill_null(0.0)
+        dx = pl.when(di_sum == 0).then(0.0).otherwise(100 * (dip - din).abs() / di_sum)
         # ADX is the smoothed moving average of DX
         adx_val = dx.ewm_mean(alpha=1.0 / window, adjust=False)
         return BaseIndicator.check_fillna(adx_val, fillna, value=20)
