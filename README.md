@@ -123,6 +123,12 @@ The liquidity/microstructure toolkit — Roll vs Corwin-Schultz spread, Kyle's l
 
 ![BTCUSDT liquidity: price, Roll vs Corwin-Schultz spread, Kyle's lambda, and mean-reversion half-life](docs/assets/liquidity.png)
 
+All of the figures above are committed to the repo and regenerable from a single command — run it after changing an indicator to refresh both the `examples/` copies and the `docs/assets/` copies embedded here:
+
+```bash
+uv run python examples/generate_all_figures.py
+```
+
 ## Documentation site
 
 The docs at <https://dante-berth.github.io/Polars_TA/> are built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) + [mkdocstrings](https://mkdocstrings.github.io/), following the [Diátaxis](https://diataxis.fr/) framework (getting started / concepts / how-to guides / examples / API reference), and deploy automatically to GitHub Pages on every push to `main` via `.github/workflows/docs.yml`.

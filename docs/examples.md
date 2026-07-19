@@ -1,5 +1,10 @@
 # Examples
 
+!!! tip "Regenerating the figures"
+    Every figure on this page is produced by a script in `examples/` and
+    committed to `docs/assets/`. Regenerate them all at once with
+    `uv run python examples/generate_all_figures.py` after changing an indicator.
+
 ## Quickstart: a full indicator bundle
 
 The runnable version of this lives at [`examples/quickstart.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/quickstart.py):
