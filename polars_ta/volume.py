@@ -1,6 +1,6 @@
 import typing as tp
 import polars as pl
-from src.utils import BaseIndicator
+from polars_ta.utils import BaseIndicator
 
 
 class VolumeIndicators:

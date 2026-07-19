@@ -1,6 +1,6 @@
 import polars as pl
 import numpy as np
-from src.utils import BaseIndicator
+from polars_ta.utils import BaseIndicator
 
 
 class TrendIndicators:
