@@ -14,6 +14,26 @@ Run it with:
 uv run python examples/quickstart.py
 ```
 
+## Classic indicators on real BTCUSDT data
+
+[`examples/plot_classic_indicators.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_classic_indicators.py) plots the well-known retail toolkit — Bollinger Bands, RSI, MACD and ATR — on the same 5,000-bar Binance BTCUSDT 5-minute fixture, so you can see the everyday indicators before the professional-desk ones below.
+
+```bash
+uv run python examples/plot_classic_indicators.py
+```
+
+![BTCUSDT classic indicators: price with Bollinger Bands and SMA, RSI, MACD, and ATR](assets/classic_indicators.png)
+
+### Reading the four panels
+
+**Panel 1 — Price, Bollinger Bands (20, 2) and a 50-bar SMA.** [`volatility.bollinger_hband`/`bollinger_lband`](api.md#polars_ta.volatility.bollinger_hband) draw the ±2σ envelope around the 20-bar moving average; price tagging or piercing a band flags a stretched move relative to recent volatility. The orange [`trend.sma_indicator`](api.md#polars_ta.trend.sma_indicator) is the slower trend reference.
+
+**Panel 2 — RSI (14).** [`momentum.rsi`](api.md#polars_ta.momentum.rsi) with the conventional 30/70 guides. Excursions above 70 (overbought) and below 30 (oversold) are the classic mean-reversion cues.
+
+**Panel 3 — MACD (12/26/9).** [`trend.macd`](api.md#polars_ta.trend.macd), its signal line, and the histogram ([`macd_diff`](api.md#polars_ta.trend.macd_diff)). Histogram bars are colored by sign *and* positioned above/below zero, so the momentum cross reads without relying on color.
+
+**Panel 4 — ATR (14).** [`volatility.average_true_range`](api.md#polars_ta.volatility.average_true_range), the standard volatility-of-range measure used for stop placement and position sizing.
+
 ## Professional-desk regime dashboard on real BTCUSDT data
 
 [`examples/plot_regime_dashboard.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_regime_dashboard.py) is a runnable matplotlib example that plots `polars_ta` indicators on **real market data** — a 5,000-row slice of Binance BTCUSDT 5-minute OHLCV bars (`tests/fixtures/btcusdt_5m_sample.arrow`), the same fixture used by `tests/test_quant.py` and `tests/test_microstructure.py`.

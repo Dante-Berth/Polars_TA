@@ -54,6 +54,10 @@ See [examples/quickstart.py](examples/quickstart.py) for a fuller example, or ru
 uv run python examples/quickstart.py
 ```
 
+The classic retail toolkit — Bollinger Bands, RSI, MACD and ATR — plotted on real Binance BTCUSDT 5-minute data by [examples/plot_classic_indicators.py](examples/plot_classic_indicators.py):
+
+![BTCUSDT classic indicators: price with Bollinger Bands and SMA, RSI, MACD, and ATR](docs/assets/classic_indicators.png)
+
 ## Modules
 
 | Module | Contents |
@@ -108,6 +112,8 @@ uv run python examples/plot_regime_dashboard.py
 ```
 
 Renders a 3-panel dashboard (price, Hurst-ribbon regime shading, Yang-Zhang volatility + VPIN) to `examples/regime_dashboard.png` — a visual sanity check a human can actually read, not just a table of numbers.
+
+![BTCUSDT regime dashboard: price, Hurst-ribbon regime shading, Yang-Zhang volatility and VPIN](docs/assets/regime_dashboard.png)
 
 ## Documentation site
 
