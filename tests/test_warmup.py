@@ -56,6 +56,17 @@ CASES = {
     "kyle_lambda_20": (ms.kyle_lambda("close", "volume", window=20), 39),
     "hurst_100": (ms.hurst_exponent("close"), 99),
     "hist_vol_20": (quant.historical_volatility("close"), 21),
+    "hull_moving_average_9": (trend.hull_moving_average("close", window=9), 10),
+    "supertrend_10": (trend.supertrend("high", "low", "close", window=10), 9),
+    "elder_bull_power_13": (
+        trend.elder_bull_power("high", "low", "close", window=13),
+        12,
+    ),
+    "cmo_14": (momentum.cmo("close", window=14), 13),
+    "fisher_transform_9": (momentum.fisher_transform("high", "low", window=9), 8),
+    "kvo": (volume.klinger_volume_oscillator("high", "low", "close", "volume"), 54),
+    "ewma_volatility_21": (quant.ewma_volatility("close", window=21), 21),
+    "lee_ready_trade_sign": (ms.lee_ready_trade_sign("close"), 0),
 }
 
 

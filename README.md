@@ -66,13 +66,13 @@ The trend & volume toolkit — Ichimoku cloud, ADX with +DI/-DI, Aroon oscillato
 
 | Module | Contents |
 |---|---|
-| `polars_ta.momentum` | RSI, TSI, Stochastic (+ signal), Stochastic RSI, Ultimate Oscillator, Williams %R, KAMA, ROC, Awesome Oscillator, PPO, PVO |
-| `polars_ta.trend` | SMA/EMA/WMA, MACD, ADX (+DI/-DI), Vortex, TRIX, Mass Index, CCI, DPO, KST, STC, Ichimoku, Aroon, Parabolic SAR |
+| `polars_ta.momentum` | RSI, TSI, Stochastic (+ signal), Stochastic RSI, Ultimate Oscillator, Williams %R, KAMA, ROC, Awesome Oscillator, PPO, PVO, Chande Momentum Oscillator, Fisher Transform |
+| `polars_ta.trend` | SMA/EMA/WMA, MACD, ADX (+DI/-DI), Vortex, TRIX, Mass Index, CCI, DPO, KST, STC, Ichimoku, Aroon, Parabolic SAR, Hull Moving Average, SuperTrend, Elder Ray (Bull/Bear Power) |
 | `polars_ta.volatility` | ATR, Bollinger Bands, Keltner Channel, Donchian Channel, Ulcer Index |
-| `polars_ta.volume` | ADI, OBV, Chaikin Money Flow, Force Index, Ease of Movement, VPT, NVI, Money Flow Index, VWAP |
+| `polars_ta.volume` | ADI, OBV, Chaikin Money Flow, Force Index, Ease of Movement, VPT, NVI, Money Flow Index, VWAP, Klinger Volume Oscillator |
 | `polars_ta.others` | Daily return, daily log return, cumulative return |
-| `polars_ta.quant` | Garman-Klass, Parkinson, Rogers-Satchell & Yang-Zhang volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity, multi-scale Hurst ribbon, relative volume, volatility z-score |
-| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Corwin-Schultz high-low spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Hurst exponent (R/S), half-life of mean reversion, Lo-MacKinlay variance ratio |
+| `polars_ta.quant` | Garman-Klass, Parkinson, Rogers-Satchell & Yang-Zhang volatility, EWMA (RiskMetrics) volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity, multi-scale Hurst ribbon, relative volume, volatility z-score, cross-sectional rank/z-score |
+| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Corwin-Schultz high-low spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Lee-Ready trade-side classification, Hurst exponent (R/S), half-life of mean reversion, Lo-MacKinlay variance ratio |
 
 Every function also has an equivalent `staticmethod` on a `*Indicators` class (`MomentumIndicators`, `TrendIndicators`, `VolatilityIndicators`, `VolumeIndicators`) if you prefer namespaced access.
 

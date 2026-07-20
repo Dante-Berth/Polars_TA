@@ -398,6 +398,83 @@ class MomentumIndicators:
         pvo_hist_val = pvo_val - pvo_sig
         return BaseIndicator.check_fillna(pvo_hist_val, fillna, value=0)
 
+    # ---------------------------------------------------------
+    # Chande Momentum Oscillator (CMO)
+    # ---------------------------------------------------------
+    @staticmethod
+    def cmo(close: str | pl.Expr, window: int = 14, fillna: bool = False) -> pl.Expr:
+        """Chande Momentum Oscillator: 100 * (sum(up) - sum(down)) / (sum(up)
+        + sum(down)) over the window, unlike RSI's smoothed averages."""
+        close = pl.col(close) if isinstance(close, str) else close
+        min_periods = 1 if fillna else window
+
+        diff = close.diff(1)
+        up = pl.when(diff > 0).then(diff).otherwise(0.0)
+        down = pl.when(diff < 0).then(-diff).otherwise(0.0)
+
+        sum_up = up.rolling_sum(window_size=window, min_samples=min_periods)
+        sum_down = down.rolling_sum(window_size=window, min_samples=min_periods)
+        total = sum_up + sum_down
+
+        cmo = pl.when(total == 0).then(0.0).otherwise(100 * (sum_up - sum_down) / total)
+        return BaseIndicator.check_fillna(cmo, fillna, value=0)
+
+    # ---------------------------------------------------------
+    # Fisher Transform
+    # ---------------------------------------------------------
+    @staticmethod
+    def fisher_transform(
+        high: str | pl.Expr,
+        low: str | pl.Expr,
+        window: int = 9,
+        fillna: bool = False,
+    ) -> pl.Expr:
+        """Ehlers' Fisher Transform: maps a bounded price-position oscillator
+        through `atanh` to produce sharper, more Gaussian-distributed turning
+        points than the underlying stochastic-style oscillator.
+
+        Ehlers' original formula EMA-smooths the normalized price position
+        (`value = 0.33 * 2*(...) + 0.67 * value[1]`) *before* the `atanh`
+        step, and smooths the Fisher output itself the same way. Skipping
+        that damping — feeding the raw, unsmoothed position straight into
+        `atanh` — saturates the output near the clip boundary on real,
+        noisy data (price sits at the rolling high/low far more often than
+        the idealized derivation assumes), producing a square-wave-like
+        series instead of the intended smooth oscillator. `map_batches`
+        carries the two damped recursions; everything upstream is vectorized.
+        """
+        high = pl.col(high) if isinstance(high, str) else high
+        low = pl.col(low) if isinstance(low, str) else low
+        min_periods = 1 if fillna else window
+
+        hl2 = (high + low) / 2.0
+        lowest = hl2.rolling_min(window_size=window, min_samples=min_periods)
+        highest = hl2.rolling_max(window_size=window, min_samples=min_periods)
+
+        price_range = highest - lowest
+        raw = pl.when(price_range == 0).then(0.0).otherwise(
+            2.0 * (hl2 - lowest) / price_range - 1.0
+        )
+
+        def _calc_fisher(s: pl.Series) -> pl.Series:
+            raw_arr = s.to_numpy()
+            n = len(raw_arr)
+            value = 0.0
+            fish = 0.0
+            out = np.full(n, np.nan)
+            for i in range(n):
+                r = raw_arr[i]
+                if np.isnan(r):
+                    continue
+                value = 0.33 * r + 0.67 * value
+                value = min(max(value, -0.999), 0.999)
+                fish = 0.5 * np.log((1 + value) / (1 - value)) + 0.5 * fish
+                out[i] = fish
+            return pl.Series(out).fill_nan(None)
+
+        fisher = raw.map_batches(_calc_fisher, returns_scalar=False)
+        return BaseIndicator.check_fillna(fisher, fillna, value=0)
+
 
 # ==============================================================================
 # TOP-LEVEL API WRAPPERS
@@ -505,3 +582,11 @@ def pvo_hist(
     return MomentumIndicators.pvo_hist(
         volume, window_slow, window_fast, window_sign, fillna
     )
+
+
+def cmo(close, window=14, fillna=False) -> pl.Expr:
+    return MomentumIndicators.cmo(close, window, fillna)
+
+
+def fisher_transform(high, low, window=9, fillna=False) -> pl.Expr:
+    return MomentumIndicators.fisher_transform(high, low, window, fillna)

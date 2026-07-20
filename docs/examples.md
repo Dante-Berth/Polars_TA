@@ -101,6 +101,28 @@ uv run python examples/plot_regime_dashboard.py
 
 Every other example and most unit tests in this repo use synthetic random-walk OHLCV data, which is fine for checking that an indicator's math is internally consistent (e.g. RSI stays in `[0, 100]`). But microstructure/regime features like VPIN and the Hurst ribbon are specifically about detecting structure that *isn't* present in i.i.d. random-walk noise — a synthetic series would make the regime panel look meaningless (Hurst hovering uselessly close to 0.5 everywhere, VPIN with no real spikes to speak of). Validating and visualizing them against real BTCUSDT data is what actually demonstrates they work as intended.
 
+## New indicators on real BTCUSDT data
+
+[`examples/plot_new_indicators.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_new_indicators.py) plots the newest indicator batch — both retail-standard trend/momentum additions and microstructure/quant additions — on the same 5,000-bar BTCUSDT fixture used above.
+
+```bash
+uv run python examples/plot_new_indicators.py
+```
+
+![BTCUSDT new indicators: SuperTrend and Hull MA overlay, Elder Ray vs CMO, Fisher Transform vs Klinger Volume Oscillator, EWMA vs historical volatility](assets/new_indicators.png)
+
+### Reading the four panels
+
+**Panel 1 — Price with SuperTrend (10, 3.0) and Hull Moving Average (20).** [`trend.supertrend`](api.md#polars_ta.trend.supertrend) is an ATR-banded stop-and-reverse line — green while price trades above the band (uptrend/long bias), red while below (downtrend/short bias) — computed with the same stateful `map_batches` band-flip logic as `psar`. [`trend.hull_moving_average`](api.md#polars_ta.trend.hull_moving_average) (purple) tracks price more tightly than a plain SMA/EMA of the same length, trading a little more whipsaw for much less lag.
+
+**Panel 2 — Elder Ray (Bull/Bear Power) vs. Chande Momentum Oscillator.** [`trend.elder_bull_power`](api.md#polars_ta.trend.elder_bull_power) and [`trend.elder_bear_power`](api.md#polars_ta.trend.elder_bear_power) measure how far the high/low reach above/below a 13-bar EMA of close — a positive Bull Power with a rising EMA is the classic Elder buy setup. [`momentum.cmo`](api.md#polars_ta.momentum.cmo) (blue, right axis) is RSI's less-smoothed cousin: it sums raw up/down moves over the window instead of using Wilder's EMA, so it swings faster and reaches further into the ±100 band.
+
+**Panel 3 — Fisher Transform vs. Klinger Volume Oscillator.** [`momentum.fisher_transform`](api.md#polars_ta.momentum.fisher_transform) (orange) maps a bounded stochastic-style price position through `atanh`, sharpening turning points into more distinct spikes than a plain oscillator — note it uses Ehlers' original double-EMA-damped recursion, not a one-shot `atanh`, which is what keeps it from saturating at its clip boundary on noisy real data. [`volume.klinger_volume_oscillator`](api.md#polars_ta.volume.klinger_volume_oscillator) (purple, right axis) is a volume-force oscillator that flips sign with the typical-price trend direction — used to confirm whether a price move has real volume backing it.
+
+**Panel 4 — EWMA volatility vs. historical volatility.** [`quant.historical_volatility`](api.md#polars_ta.quant.historical_volatility) (blue) uses a flat rolling window; [`quant.ewma_volatility`](api.md#polars_ta.quant.ewma_volatility) (red) uses RiskMetrics-style exponential decay (λ=0.94), so it reacts to a volatility spike immediately and fades out smoothly instead of dropping off a cliff exactly `window` bars later — visible at every spike in the chart, where the red line leads the blue line up and trails it back down.
+
+Two indicators from this batch don't appear in the figure because they aren't single time-series lines: [`microstructure.lee_ready_trade_sign`](api.md#polars_ta.microstructure.lee_ready_trade_sign) classifies each bar as buy/sell/unclassifiable (`+1`/`-1`/`0`) rather than producing a continuous line, and [`quant.cross_sectional_zscore`](api.md#polars_ta.quant.cross_sectional_zscore) / [`quant.cross_sectional_rank`](api.md#polars_ta.quant.cross_sectional_rank) rank symbols against each other at each timestamp on a multi-asset frame — see [How-to guides](how_to_guides.md#rank-symbols-cross-sectionally-at-each-timestamp) for a runnable example of both.
+
 ## More indicator combinations
 
 ### Trend + volatility regime filter

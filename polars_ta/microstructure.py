@@ -167,6 +167,41 @@ def effective_spread(
     return (2.0 * (close - mid).abs()).alias("effective_spread")
 
 
+def lee_ready_trade_sign(
+    close: str | pl.Expr, mid_price: str | pl.Expr | None = None
+) -> pl.Expr:
+    """Lee-Ready trade-side classification: +1 buy-initiated, -1
+    sell-initiated, 0 unclassifiable, per bar/trade.
+
+    The full Lee & Ready (1991) algorithm classifies by the quote test
+    (trade price vs. the prevailing bid-ask midpoint) first, falling back to
+    the tick test (trade price vs. the previous trade price) only when the
+    trade is exactly at the midpoint. Bar data has no quotes, so when
+    `mid_price` isn't supplied the quote test is skipped entirely (comparing
+    close against its own previous value as "mid" would make the quote test
+    degenerate into the tick test) and classification falls straight to the
+    tick test — the standard reduction used when only trade prices are
+    observable. A genuine tie (flat price) is unclassifiable (`0`), never
+    guessed.
+    """
+    close = as_expr(close)
+    prev_close = close.shift(1)
+    tick_sign = (
+        pl.when(close > prev_close)
+        .then(1)
+        .when(close < prev_close)
+        .then(-1)
+        .otherwise(None)
+    )
+
+    if mid_price is None:
+        return tick_sign.fill_null(0).alias("trade_sign")
+
+    mid = as_expr(mid_price)
+    quote_sign = pl.when(close > mid).then(1).when(close < mid).then(-1).otherwise(None)
+    return quote_sign.fill_null(tick_sign).fill_null(0).alias("trade_sign")
+
+
 def vpin(
     close: str | pl.Expr,
     volume: str | pl.Expr,

@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from plot_classic_indicators import main as classic_main  # noqa: E402
 from plot_liquidity import main as liquidity_main  # noqa: E402
+from plot_new_indicators import main as new_indicators_main  # noqa: E402
 from plot_regime_dashboard import main as regime_main  # noqa: E402
 from plot_trend_volume import main as trend_volume_main  # noqa: E402
 
@@ -24,6 +25,7 @@ FIGURES = {
     "trend & volume": trend_volume_main,
     "liquidity & microstructure": liquidity_main,
     "regime dashboard": regime_main,
+    "new indicators": new_indicators_main,
 }
 
 

@@ -107,6 +107,39 @@ def test_hurst_window_too_short_is_null():
     assert out.null_count() == len(out)  # < 20 samples per window -> undefined
 
 
+def test_supertrend_shorter_than_atr_window_is_all_null():
+    # Fewer bars than the ATR warm-up window: basic_upper/lower never leave
+    # their warm-up null, so the whole output stays null (the all-NaN branch
+    # of the map_batches kernel).
+    short = DF.head(5)
+    out = short.select(
+        trend.supertrend("high", "low", "close", window=10).alias("v")
+    )["v"]
+    assert out.null_count() == len(out)
+
+
+def test_klinger_volume_oscillator_trend_flip():
+    # A V-shaped price path forces a trend flip partway through, exercising
+    # the branch where the cumulative range resets instead of accumulating.
+    close = np.concatenate([np.linspace(100, 90, 40), np.linspace(90, 110, 40)])
+    df = pl.DataFrame(
+        {
+            "high": close + 0.5,
+            "low": close - 0.5,
+            "close": close,
+            "volume": np.full(80, 1000.0),
+        }
+    )
+    out = df.select(
+        volume.klinger_volume_oscillator(
+            "high", "low", "close", "volume", window_fast=5, window_slow=10
+        ).alias("v")
+    )["v"]
+    vals = out.drop_nulls().to_numpy()
+    assert len(vals) > 0
+    assert np.isfinite(vals).all()
+
+
 def test_vpin_bucket_never_fills():
     # A bucket_size far above total volume: no bucket ever completes, so
     # every row is warm-up null.

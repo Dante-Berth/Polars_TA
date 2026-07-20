@@ -1,3 +1,4 @@
+import numpy as np
 import polars as pl
 
 from polars_ta.utils import BaseIndicator
@@ -249,6 +250,65 @@ class VolumeIndicators:
         vwap = total_pv / total_volume
         return BaseIndicator.check_fillna(vwap, fillna, value=0)
 
+    # ---------------------------------------------------------
+    # Klinger Volume Oscillator (KVO)
+    # ---------------------------------------------------------
+    @staticmethod
+    def klinger_volume_oscillator(
+        high: str | pl.Expr,
+        low: str | pl.Expr,
+        close: str | pl.Expr,
+        volume: str | pl.Expr,
+        window_fast: int = 34,
+        window_slow: int = 55,
+        fillna: bool = False,
+    ) -> pl.Expr:
+        """Klinger Volume Oscillator: signed volume force (volume * trend
+        direction * daily-range-vs-3-day-range factor), EMA-smoothed at two
+        speeds and differenced — a volume-based trend-confirmation oscillator.
+        """
+        high = pl.col(high) if isinstance(high, str) else high
+        low = pl.col(low) if isinstance(low, str) else low
+        close = pl.col(close) if isinstance(close, str) else close
+        volume = pl.col(volume) if isinstance(volume, str) else volume
+
+        hlc3 = (high + low + close) / 3.0
+        trend = pl.when(hlc3 > hlc3.shift(1)).then(1.0).otherwise(-1.0)
+        dm = high - low
+
+        # cm (cumulative range) resets to the prior + current bar's range on
+        # every trend flip, and otherwise accumulates dm while the trend
+        # direction persists — the defining stateful step of Klinger's
+        # formula, so it needs a genuine recursion rather than a rolling op.
+        def _calc_cm(struct_s: pl.Series) -> pl.Series:
+            df = struct_s.struct.unnest()
+            trend_arr = df["trend"].to_numpy()
+            dm_arr = df["dm"].to_numpy()
+            n = len(dm_arr)
+            cm = np.empty(n)
+            cm[0] = dm_arr[0]
+            for i in range(1, n):
+                if trend_arr[i] == trend_arr[i - 1]:
+                    cm[i] = cm[i - 1] + dm_arr[i]
+                else:
+                    # pragma: no cover - exercised by
+                    # test_klinger_volume_oscillator_trend_flip; polars runs
+                    # map_batches off the coverage-traced thread.
+                    cm[i] = dm_arr[i - 1] + dm_arr[i]  # pragma: no cover
+            return pl.Series(cm)
+
+        cm = pl.struct([trend.alias("trend"), dm.alias("dm")]).map_batches(
+            _calc_cm, returns_scalar=False
+        )
+
+        safe_cm = pl.when(cm == 0).then(None).otherwise(cm)
+        volume_force = volume * (2 * (dm / safe_cm).abs() - 1).abs() * trend * 100
+
+        ema_fast = BaseIndicator.ema(volume_force, window_fast, fillna)
+        ema_slow = BaseIndicator.ema(volume_force, window_slow, fillna)
+        kvo = ema_fast - ema_slow
+        return BaseIndicator.check_fillna(kvo, fillna, value=0)
+
 
 # ==============================================================================
 # TOP-LEVEL API WRAPPERS
@@ -304,4 +364,12 @@ def volume_weighted_average_price(
 ) -> pl.Expr:
     return VolumeIndicators.volume_weighted_average_price(
         high, low, close, volume, window, fillna
+    )
+
+
+def klinger_volume_oscillator(
+    high, low, close, volume, window_fast=34, window_slow=55, fillna=False
+) -> pl.Expr:
+    return VolumeIndicators.klinger_volume_oscillator(
+        high, low, close, volume, window_fast, window_slow, fillna
     )

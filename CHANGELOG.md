@@ -6,6 +6,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- New trend indicators: `trend.supertrend` (ATR-banded stop-and-reverse
+  line), `trend.hull_moving_average` (lower-lag alternative to SMA/EMA), and
+  `trend.elder_bull_power` / `trend.elder_bear_power` (Elder Ray).
+- New momentum indicators: `momentum.cmo` (Chande Momentum Oscillator) and
+  `momentum.fisher_transform` (Ehlers' Fisher Transform, using the original
+  double-EMA-damped recursion rather than a one-shot `atanh`, which would
+  saturate at the clip boundary on noisy real data).
+- New volume indicator: `volume.klinger_volume_oscillator`.
+- New quant indicators: `quant.ewma_volatility` (RiskMetrics-style
+  exponentially-weighted volatility) and `quant.cross_sectional_zscore` /
+  `quant.cross_sectional_rank` — the library's first cross-sectional
+  indicators, comparing symbols against each other at each timestamp
+  (`.over(timestamp_column)`) rather than through time for one symbol.
+- New microstructure indicator: `microstructure.lee_ready_trade_sign`
+  (Lee-Ready buy/sell trade classification, falling back to the tick test on
+  bar data without quotes).
+- A new documentation example (`examples/plot_new_indicators.py`) and
+  "New indicators" section in the docs covering all of the above on real
+  BTCUSDT data, plus a "Rank symbols cross-sectionally" how-to guide.
+- Reference, warm-up, smoke, and multi-asset (`.over("symbol")`) test
+  coverage for every new indicator, keeping the suite at 100% line coverage.
+
 ### Fixed
 
 - **`momentum.kama` and the `trend.adx` family reported fabricated values

@@ -161,10 +161,24 @@ FILLNA_CASES = {
     "vwap": lambda f: volume.volume_weighted_average_price(
         "high", "low", "close", "volume", fillna=f
     ),
+    "kvo": lambda f: volume.klinger_volume_oscillator(
+        "high", "low", "close", "volume", fillna=f
+    ),
     # others
     "daily_return": lambda f: others.daily_return("close", fillna=f),
     "daily_log_return": lambda f: others.daily_log_return("close", fillna=f),
     "cumulative_return": lambda f: others.cumulative_return("close", fillna=f),
+    # new trend/momentum additions
+    "hull_moving_average": lambda f: trend.hull_moving_average("close", fillna=f),
+    "supertrend": lambda f: trend.supertrend("high", "low", "close", fillna=f),
+    "elder_bull_power": lambda f: trend.elder_bull_power(
+        "high", "low", "close", fillna=f
+    ),
+    "elder_bear_power": lambda f: trend.elder_bear_power(
+        "high", "low", "close", fillna=f
+    ),
+    "cmo": lambda f: momentum.cmo("close", fillna=f),
+    "fisher_transform": lambda f: momentum.fisher_transform("high", "low", fillna=f),
 }
 
 # quant / microstructure indicators (no fillna flag)
@@ -196,6 +210,8 @@ PLAIN_CASES = {
     "half_life": ms.half_life("close", window=40),
     "rolling_beta": ms.rolling_beta("close", "open", window=20),
     "rolling_cov": ms.rolling_cov("close", "open", window=20),
+    "ewma_volatility": quant.ewma_volatility("close"),
+    "lee_ready_trade_sign": ms.lee_ready_trade_sign("close"),
 }
 
 
@@ -249,3 +265,51 @@ def test_check_fillna_bfill_mode():
         "v"
     ]
     assert out.null_count() == 0
+
+
+def test_cross_sectional_zscore_and_rank():
+    cs = pl.DataFrame(
+        {
+            "t": [1, 1, 1, 2, 2, 2],
+            "sym": ["A", "B", "C", "A", "B", "C"],
+            "mom": [1.0, 2.0, 3.0, -1.0, 0.0, 5.0],
+        }
+    )
+    out = cs.with_columns(
+        quant.cross_sectional_zscore("mom").over("t").alias("z"),
+        quant.cross_sectional_rank("mom").over("t").alias("rank_pct"),
+        quant.cross_sectional_rank("mom", pct=False).over("t").alias("rank_dense"),
+    )
+    # Within each timestamp, z-scores are centered and ranks span [0, 1].
+    for t in (1, 2):
+        group = out.filter(pl.col("t") == t)
+        assert abs(group["z"].mean()) < 1e-9
+        assert group["rank_pct"].min() > 0 and group["rank_pct"].max() == 1.0
+        assert sorted(group["rank_dense"].to_list()) == [1, 2, 3]
+
+
+def test_cross_sectional_zscore_tied_cross_section_is_null():
+    cs = pl.DataFrame({"t": [1, 1, 1], "mom": [5.0, 5.0, 5.0]})
+    out = cs.select(quant.cross_sectional_zscore("mom").over("t").alias("z"))["z"]
+    assert out.null_count() == len(out)
+
+
+def test_lee_ready_trade_sign_quote_test():
+    # close strictly above/below the supplied mid classifies by the quote
+    # test, independent of the tick direction.
+    df = pl.DataFrame({"close": [100.0, 101.0, 99.0], "mid": [100.0, 100.0, 100.0]})
+    out = df.select(ms.lee_ready_trade_sign("close", "mid").alias("v"))["v"].to_list()
+    assert out == [0, 1, -1]
+
+
+def test_lee_ready_trade_sign_tick_fallback():
+    # At the midpoint, falls back to the tick test (close vs. previous close).
+    df = pl.DataFrame(
+        {"close": [100.0, 101.0, 100.0, 99.0], "mid": [100.0, 100.0, 100.0, 100.0]}
+    )
+    out = df.select(ms.lee_ready_trade_sign("close", "mid").alias("v"))["v"].to_list()
+    # Row 2 (close==mid==100): quote test ties, tick test compares
+    # close(100) vs prev_close(101) -> down -> -1.
+    assert out[2] == -1
+    # Row 3 (close=99 < mid=100): pure quote test -> -1.
+    assert out[3] == -1

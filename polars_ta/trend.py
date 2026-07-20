@@ -2,6 +2,7 @@ import numpy as np
 import polars as pl
 
 from polars_ta.utils import BaseIndicator
+from polars_ta.volatility import VolatilityIndicators
 
 
 class TrendIndicators:
@@ -687,6 +688,126 @@ class ComplexTrendIndicators:
 
         return BaseIndicator.check_fillna(stc_val, fillna, value=0)
 
+    # ---------------------------------------------------------
+    # Hull Moving Average (HMA)
+    # ---------------------------------------------------------
+    @staticmethod
+    def hull_moving_average(
+        close: str | pl.Expr, window: int = 9, fillna: bool = False
+    ) -> pl.Expr:
+        """Hull Moving Average: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
+
+        Reduces the lag inherent in a plain moving average while staying
+        smoother than price itself, at the cost of the extra WMA passes
+        needing `window + round(sqrt(window)) - 1` bars of warm-up.
+        """
+        close = pl.col(close) if isinstance(close, str) else close
+        half_window = max(1, round(window / 2))
+        sqrt_window = max(1, round(np.sqrt(window)))
+
+        wma_half = TrendIndicators.wma_indicator(close, half_window, fillna)
+        wma_full = TrendIndicators.wma_indicator(close, window, fillna)
+        raw_hma = 2 * wma_half - wma_full
+
+        hma = TrendIndicators.wma_indicator(raw_hma, sqrt_window, fillna)
+        return BaseIndicator.check_fillna(hma, fillna, value=0)
+
+    # ---------------------------------------------------------
+    # SuperTrend
+    # ---------------------------------------------------------
+    @staticmethod
+    def supertrend(
+        high: str | pl.Expr,
+        low: str | pl.Expr,
+        close: str | pl.Expr,
+        window: int = 10,
+        multiplier: float = 3.0,
+        fillna: bool = False,
+    ) -> pl.Expr:
+        """SuperTrend line: an ATR-banded trend-following stop-and-reverse
+        indicator, computed via `map_batches` for the stateful band-flip
+        logic (the same style as `psar`)."""
+        high = pl.col(high) if isinstance(high, str) else high
+        low = pl.col(low) if isinstance(low, str) else low
+        close = pl.col(close) if isinstance(close, str) else close
+
+        atr = VolatilityIndicators.average_true_range(high, low, close, window)
+        hl2 = (high + low) / 2.0
+        basic_upper = hl2 + multiplier * atr
+        basic_lower = hl2 - multiplier * atr
+
+        def _calc_supertrend(struct_s: pl.Series) -> pl.Series:
+            df = struct_s.struct.unnest()
+            c_arr = df["close"].to_numpy()
+            bu_arr = df["bu"].to_numpy()
+            bl_arr = df["bl"].to_numpy()
+            n = len(c_arr)
+
+            supertrend = np.full(n, np.nan)
+            start = int(np.argmax(~np.isnan(bu_arr))) if np.isnan(bu_arr).any() else 0
+            if np.isnan(bu_arr).all() or n == 0:
+                return pl.Series(supertrend).fill_nan(None)
+
+            final_upper = bu_arr[start]
+            final_lower = bl_arr[start]
+            up_trend = True
+            supertrend[start] = final_lower
+
+            for i in range(start + 1, n):
+                if bu_arr[i] < final_upper or c_arr[i - 1] > final_upper:
+                    final_upper = bu_arr[i]
+                if bl_arr[i] > final_lower or c_arr[i - 1] < final_lower:
+                    final_lower = bl_arr[i]
+
+                if up_trend:
+                    if c_arr[i] < final_lower:
+                        up_trend = False
+                else:
+                    if c_arr[i] > final_upper:
+                        up_trend = True
+
+                supertrend[i] = final_lower if up_trend else final_upper
+
+            return pl.Series(supertrend).fill_nan(None)
+
+        expr = pl.struct(
+            [close.alias("close"), basic_upper.alias("bu"), basic_lower.alias("bl")]
+        ).map_batches(_calc_supertrend, returns_scalar=False)
+        return BaseIndicator.check_fillna(expr, fillna, value=0)
+
+    # ---------------------------------------------------------
+    # Elder Ray Index (Bull/Bear Power)
+    # ---------------------------------------------------------
+    @staticmethod
+    def elder_bull_power(
+        high: str | pl.Expr,
+        low: str | pl.Expr,
+        close: str | pl.Expr,
+        window: int = 13,
+        fillna: bool = False,
+    ) -> pl.Expr:
+        """Bull Power: high minus a 13-bar EMA of close."""
+        high = pl.col(high) if isinstance(high, str) else high
+        close = pl.col(close) if isinstance(close, str) else close
+        ema = BaseIndicator.ema(close, window, fillna)
+        bull = high - ema
+        return BaseIndicator.check_fillna(bull, fillna, value=0)
+
+    @staticmethod
+    def elder_bear_power(
+        high: str | pl.Expr,
+        low: str | pl.Expr,
+        close: str | pl.Expr,
+        window: int = 13,
+        fillna: bool = False,
+    ) -> pl.Expr:
+        """Bear Power: low minus a 13-bar EMA of close."""
+        low = pl.col(low) if isinstance(low, str) else low
+        close = pl.col(close) if isinstance(close, str) else close
+        ema = BaseIndicator.ema(close, window, fillna)
+        bear = low - ema
+        return BaseIndicator.check_fillna(bear, fillna, value=0)
+
 
 def ema_indicator(close, window=12, fillna=False) -> pl.Expr:
     return TrendIndicators.ema_indicator(close, window, fillna)
@@ -831,3 +952,21 @@ def aroon_down(high, low, window=25, fillna=False) -> pl.Expr:
 
 def psar(high, low, close, step=0.02, max_step=0.20, fillna=False) -> pl.Expr:
     return ComplexTrendIndicators.psar(high, low, close, step, max_step, fillna)
+
+
+def hull_moving_average(close, window=9, fillna=False) -> pl.Expr:
+    return ComplexTrendIndicators.hull_moving_average(close, window, fillna)
+
+
+def supertrend(high, low, close, window=10, multiplier=3.0, fillna=False) -> pl.Expr:
+    return ComplexTrendIndicators.supertrend(
+        high, low, close, window, multiplier, fillna
+    )
+
+
+def elder_bull_power(high, low, close, window=13, fillna=False) -> pl.Expr:
+    return ComplexTrendIndicators.elder_bull_power(high, low, close, window, fillna)
+
+
+def elder_bear_power(high, low, close, window=13, fillna=False) -> pl.Expr:
+    return ComplexTrendIndicators.elder_bear_power(high, low, close, window, fillna)

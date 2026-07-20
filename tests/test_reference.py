@@ -349,3 +349,80 @@ def test_cci_matches_reference():
     mad = _rolling(tp, window, lambda w: np.abs(w - w.mean()).mean())
     ref = (tp - sma) / (constant * mad)
     _compare(ours, ref, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Chande Momentum Oscillator / Fisher Transform / Hull Moving Average
+# ---------------------------------------------------------------------------
+
+
+def test_cmo_matches_reference():
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    window = 14
+    ours = df.select(momentum.cmo("close", window).alias("v"))["v"].to_numpy()
+
+    diff = np.diff(close, prepend=np.nan)
+    up = np.where(diff > 0, diff, 0.0)
+    down = np.where(diff < 0, -diff, 0.0)
+    up[0] = np.nan
+    down[0] = np.nan
+    sum_up = _rolling(up, window, np.nansum)
+    sum_down = _rolling(down, window, np.nansum)
+    total = sum_up + sum_down
+    ref = np.where(total == 0, 0.0, 100 * (sum_up - sum_down) / total)
+    _compare(ours, ref, atol=1e-6)
+
+
+def test_fisher_transform_matches_reference():
+    df = _make_ohlcv()
+    high, low = df["high"].to_numpy(), df["low"].to_numpy()
+    window = 9
+    ours = df.select(momentum.fisher_transform("high", "low", window).alias("v"))[
+        "v"
+    ].to_numpy()
+
+    hl2 = (high + low) / 2.0
+    lowest = _rolling(hl2, window, np.min)
+    highest = _rolling(hl2, window, np.max)
+    price_range = highest - lowest
+    raw = np.where(price_range == 0, 0.0, 2.0 * (hl2 - lowest) / price_range - 1.0)
+
+    # Ehlers' formula double-smooths: an EMA-damped normalized position fed
+    # into atanh, then an EMA-damped Fisher output — matching the library's
+    # map_batches recursion (see momentum.fisher_transform's docstring for
+    # why the undamped one-shot version saturates on real data).
+    ref = np.full(len(raw), np.nan)
+    value = 0.0
+    fish = 0.0
+    for i in range(len(raw)):
+        r = raw[i]
+        if np.isnan(r):
+            continue
+        value = 0.33 * r + 0.67 * value
+        value = min(max(value, -0.999), 0.999)
+        fish = 0.5 * np.log((1 + value) / (1 - value)) + 0.5 * fish
+        ref[i] = fish
+    ref[: window - 1] = np.nan
+    _compare(ours, ref, atol=1e-6)
+
+
+def test_hull_moving_average_matches_reference():
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    window = 9
+    half, sq = round(window / 2), round(np.sqrt(window))
+    ours = df.select(trend.hull_moving_average("close", window).alias("v"))[
+        "v"
+    ].to_numpy()
+
+    def wma(x, w):
+        weights = np.array([i * 2 / (w * (w + 1)) for i in range(1, w + 1)])
+        out = np.full(len(x), np.nan)
+        for i in range(w - 1, len(x)):
+            out[i] = np.dot(x[i - w + 1 : i + 1], weights)
+        return out
+
+    raw_hma = 2 * wma(close, half) - wma(close, window)
+    ref = wma(raw_hma, sq)
+    _compare(ours, ref, atol=1e-6)

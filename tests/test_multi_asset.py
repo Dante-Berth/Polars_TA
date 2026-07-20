@@ -13,7 +13,7 @@ import polars as pl
 import pytest
 
 from polars_ta import microstructure as ms
-from polars_ta import momentum, trend, volatility, volume
+from polars_ta import momentum, quant, trend, volatility, volume
 
 
 def _make_ohlcv(n: int, seed: int) -> pl.DataFrame:
@@ -58,6 +58,14 @@ INDICATORS = {
     "roll_spread": ms.roll_spread("close", window=20),
     "vpin": ms.vpin("close", "volume", bucket_size=50_000),
     "hurst": ms.hurst_exponent("close"),
+    "hull_moving_average": trend.hull_moving_average("close"),
+    "supertrend": trend.supertrend("high", "low", "close"),
+    "elder_bull_power": trend.elder_bull_power("high", "low", "close"),
+    "cmo": momentum.cmo("close"),
+    "fisher_transform": momentum.fisher_transform("high", "low"),
+    "kvo": volume.klinger_volume_oscillator("high", "low", "close", "volume"),
+    "ewma_volatility": quant.ewma_volatility("close"),
+    "lee_ready_trade_sign": ms.lee_ready_trade_sign("close"),
 }
 
 

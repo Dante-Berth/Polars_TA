@@ -35,6 +35,36 @@ out = df.with_columns(
 Warm-up nulls restart at each symbol boundary, exactly as if each symbol had
 been computed on its own frame.
 
+## Rank symbols cross-sectionally at each timestamp
+
+Every indicator above computes a rolling statistic *through time* for one
+symbol via `.over("symbol")`. [`quant.cross_sectional_zscore`](api.md#polars_ta.quant.cross_sectional_zscore)
+and [`quant.cross_sectional_rank`](api.md#polars_ta.quant.cross_sectional_rank)
+do the opposite: they compare symbols *against each other at the same
+instant*, the building block of a factor/ranking strategy. Group by the
+timestamp column instead of the symbol column:
+
+```python
+import polars as pl
+from polars_ta import quant
+
+# Long format: one row per (timestamp, symbol).
+df = pl.DataFrame({
+    "timestamp": [1, 1, 1, 2, 2, 2],
+    "symbol": ["A", "B", "C", "A", "B", "C"],
+    "momentum": [1.0, 2.0, 3.0, -1.0, 0.0, 5.0],
+})
+
+out = df.with_columns(
+    quant.cross_sectional_zscore("momentum").over("timestamp").alias("z"),
+    quant.cross_sectional_rank("momentum").over("timestamp").alias("rank_pct"),
+)
+```
+
+A cross-section with zero spread (every symbol tied) yields null rather than
+a divide-by-zero, and `cross_sectional_rank(..., pct=False)` returns a dense
+integer rank instead of a `[0, 1]` percentile.
+
 ## Run on data larger than memory (streaming)
 
 Pass `engine="streaming"` to `.collect()` — no changes to the indicator calls themselves:

@@ -81,6 +81,26 @@ def historical_volatility(close: str, window: int = 21) -> pl.Expr:
     return hv.alias(f"hist_vol_{window}")
 
 
+def ewma_volatility(
+    close: str, window: int = 21, lambda_: float = 0.94
+) -> pl.Expr:
+    """Annualized EWMA (RiskMetrics-style) volatility of log returns.
+
+    Unlike `historical_volatility`'s flat rolling window, older squared
+    returns decay geometrically (weight `lambda_ ** k`), so a volatility
+    spike shows up immediately and fades out smoothly instead of dropping off
+    a cliff `window` bars later. `lambda_=0.94` is the RiskMetrics daily
+    default; `min_samples=window` keeps the same warm-up convention as every
+    other volatility estimator here even though the EWM itself has infinite
+    memory.
+    """
+    log_ret = log_return(pl.col(close))
+    sq_ret = log_ret.pow(2)
+    variance = sq_ret.ewm_mean(alpha=1 - lambda_, adjust=False, min_samples=window)
+    ewma_vol = variance.sqrt() * math.sqrt(252)
+    return ewma_vol.alias(f"ewma_vol_{window}")
+
+
 def parkinson_volatility(
     high: str, low: str, window: int = 20, trading_periods: int = 252
 ) -> pl.Expr:
@@ -233,6 +253,45 @@ def volatility_z_score(high: str, low: str, window: int = 100) -> pl.Expr:
     std = hl_range.rolling_std(window_size=window)
     safe_std = pl.when(std == 0).then(None).otherwise(std)
     return ((hl_range - mean) / safe_std).alias(f"vol_z_score_{window}")
+
+
+def cross_sectional_zscore(value: str) -> pl.Expr:
+    """Cross-sectional z-score of `value` at each timestamp.
+
+    Unlike every other indicator in this library, which computes a rolling
+    statistic *through time* for one symbol, this compares symbols *against
+    each other at the same instant* — the core building block of a
+    factor/ranking strategy. It is a per-symbol expression like any other,
+    but is only meaningful applied with `.over(timestamp_column)` on a
+    long-format multi-asset frame (columns: timestamp, symbol, value, ...),
+    grouping across symbols rather than across time:
+
+        df.with_columns(
+            quant.cross_sectional_zscore("momentum").over("timestamp")
+        )
+
+    A cross-section with zero spread (all symbols tied) yields null rather
+    than a divide-by-zero.
+    """
+    v = pl.col(value)
+    mean = v.mean()
+    std = v.std()
+    safe_std = pl.when(std == 0).then(None).otherwise(std)
+    return (v - mean) / safe_std
+
+
+def cross_sectional_rank(value: str, pct: bool = True) -> pl.Expr:
+    """Cross-sectional rank of `value` at each timestamp, in `[0, 1]` by
+    default (`pct=True`) or as a dense integer rank (`pct=False`).
+
+    Same usage as :func:`cross_sectional_zscore`: apply with
+    `.over(timestamp_column)` on a long-format multi-asset frame to rank
+    symbols against each other at each instant, not through time.
+    """
+    v = pl.col(value)
+    if pct:
+        return v.rank(method="average") / v.count()
+    return v.rank(method="dense")
 
 
 def amihud_illiquidity(close: str, volume: str, window: int = 21) -> pl.Expr:
