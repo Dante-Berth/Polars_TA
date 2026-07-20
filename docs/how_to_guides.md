@@ -2,6 +2,47 @@
 
 Task-oriented recipes. For explanations of *why* things work this way, see [Concepts](concepts.md).
 
+## Call indicators as `pl.col(...).ta.<name>()`
+
+Importing `polars_ta` registers a `.ta` namespace on every Polars expression,
+so indicators read like native Polars methods instead of free functions:
+
+```python
+import polars as pl
+import polars_ta  # importing registers the .ta namespace
+
+df = pl.read_csv("ohlcv.csv")
+
+out = df.with_columns(
+    pl.col("close").ta.rsi(14).alias("rsi"),
+    pl.col("close").ta.macd().alias("macd"),
+    pl.col("high").ta.average_true_range("low", "close").alias("atr"),
+    pl.col("close").ta.on_balance_volume("volume").alias("obv"),
+)
+```
+
+The expression you call `.ta` on is bound to the indicator's **first input** —
+`close` for most indicators, `high` for the high-anchored ones
+(`average_true_range`, `stoch`, `aroon_up`, ...). Every remaining input column
+is passed as an ordinary argument, in the same order the free function takes
+it. Because each `.ta` method returns a plain `pl.Expr`, everything else in
+this guide — `.over("symbol")`, streaming, `fillna` — works through the
+namespace unchanged:
+
+```python
+out = df.with_columns(
+    pl.col("close").ta.rsi(14).over("symbol").alias("rsi")
+)
+```
+
+The `.ta` methods and the module-level functions
+(`momentum.rsi("close", 14)`) are the *same code* — a byte-for-byte-identical
+dispatch layer — so pick whichever reads better; there is no behavioural
+difference. A few functions that don't take a single price series
+(`cross_sectional_zscore`, `cross_sectional_rank`, `regime_conditional_signal`)
+stay free-function-only. `polars_ta.TA_INDICATORS` lists every name reachable
+via `.ta`.
+
 ## Compute an indicator on a LazyFrame
 
 ```python

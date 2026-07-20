@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`.ta` expression namespace.** Importing `polars_ta` now registers a `.ta`
+  accessor on every Polars expression, so all 126 single-price-series
+  indicators are callable as `pl.col("close").ta.rsi(14)` in addition to the
+  existing `momentum.rsi("close", 14)` free-function form. The calling
+  expression is bound to the indicator's first input; remaining columns are
+  passed as arguments (`pl.col("high").ta.average_true_range("low", "close")`).
+  It is a thin, byte-for-byte-identical dispatch layer over the same functions
+  — `.over(...)`, streaming and `fillna` work through it unchanged — generated
+  from the module functions at import time so it can't drift. Cross-sectional
+  and regime-composite helpers (which don't take a single price series) stay
+  free-function-only. `polars_ta.TA_INDICATORS` lists every exposed name. New
+  "Call indicators as `pl.col(...).ta.<name>()`" how-to guide.
+
 - New `quant` portfolio/risk features across four families that retail TA
   libraries typically omit — all pure Polars expressions with the library's
   standard null warm-up and `.over("symbol")` guarantees:
@@ -83,6 +96,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   BTCUSDT data, plus a "Rank symbols cross-sectionally" how-to guide.
 - Reference, warm-up, smoke, and multi-asset (`.over("symbol")`) test
   coverage for every new indicator, keeping the suite at 100% line coverage.
+
+### Changed
+
+- **The str-or-Expr argument convention is now universal.** Every indicator's
+  column arguments accept either a column name (`str`) or an existing `pl.Expr`
+  — previously ~1/3 of functions coerced their first argument with an
+  unconditional `pl.col(...)` and rejected an `Expr`. This is what makes the
+  new `.ta` namespace work uniformly across the whole library, and is enforced
+  by the test suite.
 
 ### Fixed
 

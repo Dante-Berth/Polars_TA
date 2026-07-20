@@ -81,7 +81,11 @@ class MomentumIndicators:
         weight3: float = 1.0,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
 
         prev_close = close.shift(1)
         true_range = BaseIndicator.true_range(high, low, prev_close)
@@ -125,7 +129,11 @@ class MomentumIndicators:
         window: int = 14,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         min_periods = 1 if fillna else window
 
         smin = low.rolling_min(window_size=window, min_samples=min_periods)
@@ -233,7 +241,10 @@ class MomentumIndicators:
         window2: int = 34,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low = pl.col(high), pl.col(low)
+        high, low = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+        )
         median_price = 0.5 * (high + low)
 
         sma_fast = median_price.rolling_mean(
@@ -257,7 +268,11 @@ class MomentumIndicators:
         lbp: int = 14,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         min_periods = 1 if fillna else lbp
 
         highest_high = high.rolling_max(window_size=lbp, min_samples=min_periods)
@@ -452,8 +467,10 @@ class MomentumIndicators:
         highest = hl2.rolling_max(window_size=window, min_samples=min_periods)
 
         price_range = highest - lowest
-        raw = pl.when(price_range == 0).then(0.0).otherwise(
-            2.0 * (hl2 - lowest) / price_range - 1.0
+        raw = (
+            pl.when(price_range == 0)
+            .then(0.0)
+            .otherwise(2.0 * (hl2 - lowest) / price_range - 1.0)
         )
 
         def _calc_fisher(s: pl.Series) -> pl.Series:

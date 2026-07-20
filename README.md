@@ -48,6 +48,27 @@ out = df.with_columns(
 )
 ```
 
+Or use the native `.ta` **expression namespace** — every indicator is also a
+method on the Polars expression that supplies its primary price input, so it
+reads like built-in Polars and composes with `.over(...)`:
+
+```python
+import polars as pl
+import polars_ta  # registers the .ta namespace on import
+
+out = df.with_columns(
+    pl.col("close").ta.rsi(14).alias("rsi_14"),
+    pl.col("close").ta.macd().alias("macd"),
+    pl.col("high").ta.average_true_range("low", "close").alias("atr_14"),
+    pl.col("close").ta.on_balance_volume("volume").alias("obv"),
+)
+```
+
+The calling expression is bound to the indicator's first input (`close` for
+most, `high` for the high-anchored ones); the remaining columns are passed as
+arguments. `.ta` and the free-function API are the same code — pick whichever
+reads better.
+
 See [examples/quickstart.py](examples/quickstart.py) for a fuller example, or run it directly:
 
 ```bash
@@ -84,7 +105,8 @@ Utilities:
 
 ## Conventions
 
-- Column arguments accept either a column name (`str`) or an existing `pl.Expr`.
+- Column arguments accept either a column name (`str`) or an existing `pl.Expr` — uniformly, across every indicator (enforced by the test suite).
+- Every indicator is also reachable via the `.ta` expression namespace: `pl.col("close").ta.rsi(14)`. The calling expression fills the indicator's first input; the rest are passed as arguments. It's the same code as the free functions — a thin, byte-for-byte-identical dispatch layer — so `.over(...)` and streaming work through it unchanged. (Cross-sectional and regime-composite helpers, which don't take a single price series, stay free-function-only.)
 - Every indicator takes a `fillna: bool = False` flag. When `True`, gaps are forward-filled (and back-filled/defaulted at the start) instead of left as nulls.
 - Indicators are pure expressions with no side effects — nothing is evaluated until you call `.collect()` or use them inside `.with_columns(...)`.
 - Every indicator also works with Polars' [streaming engine](https://docs.pola.rs/user-guide/lazy/streaming/) (`.collect(engine="streaming")`) for datasets larger than memory.

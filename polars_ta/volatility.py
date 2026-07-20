@@ -186,7 +186,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         tp, _, _ = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -203,7 +207,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         _, tp_high, _ = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -220,7 +228,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         _, _, tp_low = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -237,7 +249,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         tp, tp_high, tp_low = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -255,7 +271,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         _, tp_high, tp_low = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -273,7 +293,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         _, tp_high, _ = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -291,7 +315,11 @@ class VolatilityIndicators:
         original_version: bool = True,
         multiplier: int = 2,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         _, _, tp_low = VolatilityIndicators._kc_components(
             high, low, close, window, window_atr, original_version, multiplier, fillna
         )
@@ -319,7 +347,10 @@ class VolatilityIndicators:
         offset: int = 0,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low = pl.col(high), pl.col(low)
+        high, low = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+        )
         hband, _ = VolatilityIndicators._dc_components(high, low, window, fillna)
         hband = BaseIndicator.check_fillna(hband, fillna, value=-1)
         return hband.shift(offset) if offset != 0 else hband
@@ -333,7 +364,10 @@ class VolatilityIndicators:
         offset: int = 0,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low = pl.col(high), pl.col(low)
+        high, low = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+        )
         _, lband = VolatilityIndicators._dc_components(high, low, window, fillna)
         lband = BaseIndicator.check_fillna(lband, fillna, value=-1)
         return lband.shift(offset) if offset != 0 else lband
@@ -347,7 +381,10 @@ class VolatilityIndicators:
         offset: int = 0,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low = pl.col(high), pl.col(low)
+        high, low = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+        )
         hband, lband = VolatilityIndicators._dc_components(high, low, window, fillna)
         mband = ((hband - lband) / 2.0) + lband
         mband = BaseIndicator.check_fillna(mband, fillna, value=-1)
@@ -362,7 +399,11 @@ class VolatilityIndicators:
         offset: int = 0,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         hband, lband = VolatilityIndicators._dc_components(high, low, window, fillna)
         mavg = close.rolling_mean(
             window_size=window, min_samples=1 if fillna else window
@@ -380,7 +421,11 @@ class VolatilityIndicators:
         offset: int = 0,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low, close = pl.col(high), pl.col(low), pl.col(close)
+        high, low, close = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+        )
         hband, lband = VolatilityIndicators._dc_components(high, low, window, fillna)
         pband = (close - lband) / (hband - lband)
         pband = BaseIndicator.check_fillna(pband, fillna, value=0)

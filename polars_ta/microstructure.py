@@ -492,9 +492,7 @@ def shannon_entropy(
     )
 
 
-def _approximate_entropy_from_window(
-    x: np.ndarray, m: int, r_frac: float
-) -> float:
+def _approximate_entropy_from_window(x: np.ndarray, m: int, r_frac: float) -> float:
     """Approximate entropy (Pincus, 1991) of a single 1-D window.
 
     O(window^2) per window (all pairwise embedded-vector distances) — the
@@ -518,9 +516,7 @@ def _approximate_entropy_from_window(
         # (zero-copy), then compute all pairwise Chebyshev (max-norm)
         # distances at once instead of a nested Python loop.
         vectors = np.lib.stride_tricks.sliding_window_view(x, m_)[:n_vec]
-        dist = np.max(
-            np.abs(vectors[:, None, :] - vectors[None, :, :]), axis=-1
-        )
+        dist = np.max(np.abs(vectors[:, None, :] - vectors[None, :, :]), axis=-1)
         counts = np.sum(dist <= r, axis=1)
         return float(np.mean(np.log(counts / n_vec)))
 
@@ -557,9 +553,7 @@ def approximate_entropy(
             return pl.Series(out, dtype=pl.Float64).fill_nan(None)
         views = np.lib.stride_tricks.sliding_window_view(x, window)
         for i in range(views.shape[0]):
-            out[window - 1 + i] = _approximate_entropy_from_window(
-                views[i], m, r_frac
-            )
+            out[window - 1 + i] = _approximate_entropy_from_window(views[i], m, r_frac)
         return pl.Series(out, dtype=pl.Float64).fill_nan(None)
 
     return log_ret.map_batches(_rolling_apen, returns_scalar=False).alias(

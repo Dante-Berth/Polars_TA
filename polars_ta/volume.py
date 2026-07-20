@@ -17,10 +17,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            pl.col(high),
-            pl.col(low),
-            pl.col(close),
-            pl.col(volume),
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
         )
 
         # Avoid division by zero
@@ -39,7 +39,10 @@ class VolumeIndicators:
     def on_balance_volume(
         close: str | pl.Expr, volume: str | pl.Expr, fillna: bool = False
     ) -> pl.Expr:
-        close, volume = pl.col(close), pl.col(volume)
+        close, volume = (
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
+        )
 
         # Vectorized equivalent of np.where
         obv_step = pl.when(close < close.shift(1)).then(-volume).otherwise(volume)
@@ -60,10 +63,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            pl.col(high),
-            pl.col(low),
-            pl.col(close),
-            pl.col(volume),
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
         )
         min_periods = 1 if fillna else window
 
@@ -87,7 +90,10 @@ class VolumeIndicators:
         window: int = 13,
         fillna: bool = False,
     ) -> pl.Expr:
-        close, volume = pl.col(close), pl.col(volume)
+        close, volume = (
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
+        )
         fi_series = (close - close.shift(1)) * volume
         fi = BaseIndicator.ema(fi_series, window, fillna)
         return BaseIndicator.check_fillna(fi, fillna, value=0)
@@ -103,7 +109,11 @@ class VolumeIndicators:
         window: int = 14,
         fillna: bool = False,
     ) -> pl.Expr:
-        high, low, volume = pl.col(high), pl.col(low), pl.col(volume)
+        high, low, volume = (
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(volume) if isinstance(volume, str) else volume),
+        )
 
         emv = ((high.diff() + low.diff()) * (high - low)) / (2 * volume)
         emv = emv * 100000000
@@ -134,7 +144,10 @@ class VolumeIndicators:
         smoothing_factor: int | None = None,
         dropnans: bool = False,
     ) -> pl.Expr:
-        close, volume = pl.col(close), pl.col(volume)
+        close, volume = (
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
+        )
 
         # pct_change is equivalent to (close / close.shift(1)) - 1
         pct_change = (close / close.shift(1)) - 1
@@ -158,7 +171,10 @@ class VolumeIndicators:
     def negative_volume_index(
         close: str | pl.Expr, volume: str | pl.Expr, fillna: bool = False
     ) -> pl.Expr:
-        close, volume = pl.col(close), pl.col(volume)
+        close, volume = (
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
+        )
 
         pct_change = (close / close.shift(1)) - 1
         vol_decrease = volume < volume.shift(1)
@@ -182,10 +198,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            pl.col(high),
-            pl.col(low),
-            pl.col(close),
-            pl.col(volume),
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
         )
         min_periods = 1 if fillna else window
 
@@ -232,10 +248,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            pl.col(high),
-            pl.col(low),
-            pl.col(close),
-            pl.col(volume),
+            (pl.col(high) if isinstance(high, str) else high),
+            (pl.col(low) if isinstance(low, str) else low),
+            (pl.col(close) if isinstance(close, str) else close),
+            (pl.col(volume) if isinstance(volume, str) else volume),
         )
         min_periods = 1 if fillna else window
 

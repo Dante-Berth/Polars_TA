@@ -32,6 +32,10 @@
 
 ::: polars_ta.calendar
 
+## Expression namespace (`.ta`)
+
+::: polars_ta.namespace
+
 ## Utilities
 
 ::: polars_ta.utils
