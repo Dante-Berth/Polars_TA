@@ -74,6 +74,7 @@ CASES = {
     "max_drawdown_100": (quant.rolling_max_drawdown("close", window=100), 198),
     "skew_60": (quant.rolling_skew("close", window=60), 60),
     "kurtosis_60": (quant.rolling_kurtosis("close", window=60), 60),
+    "jarque_bera_60": (quant.jarque_bera("close", window=60), 60),
     "cf_var_5_100": (quant.cornish_fisher_var("close", window=100), 100),
     "frac_diff_04_100": (quant.frac_diff("close", d=0.4, window=100), 99),
     "momentum_12_1": (quant.momentum_12_1("close", lookback=252, skip=21), 252),

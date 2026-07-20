@@ -202,6 +202,32 @@ def test_gain_to_pain_null_when_no_losses():
     assert out.drop_nulls().len() == 0
 
 
+def test_jarque_bera_matches_skew_kurtosis(df):
+    window = 60
+    jb = df.select(quant.jarque_bera("close", window=window).alias("v"))["v"].to_numpy()
+    s = df.select(quant.rolling_skew("close", window=window).alias("v"))["v"].to_numpy()
+    k = df.select(quant.rolling_kurtosis("close", window=window).alias("v"))[
+        "v"
+    ].to_numpy()
+    i = 3000
+    expected = (window / 6.0) * (s[i] ** 2 + k[i] ** 2 / 4.0)
+    assert jb[i] == pytest.approx(expected, rel=1e-9)
+    # JB is non-negative by construction (sum of squares).
+    valid = jb[~np.isnan(jb)]
+    assert (valid >= 0).all()
+
+
+def test_jarque_bera_rejects_fat_tailed_data():
+    # A heavy-tailed (Student-t, few dof) return stream should push JB well
+    # past the chi-square(2) 5% critical value (~5.99) on most windows.
+    rng = np.random.default_rng(7)
+    ret = rng.standard_t(3, size=4000) * 0.01
+    close = 100 * np.cumprod(1 + ret)
+    dft = pl.DataFrame({"close": close})
+    jb = dft.select(quant.jarque_bera("close", window=250).alias("v"))["v"].drop_nulls()
+    assert jb.median() > 5.99
+
+
 # --------------------------------------------------------------------------
 # Signal conditioning
 # --------------------------------------------------------------------------
@@ -314,6 +340,18 @@ def test_downside_beta_null_without_down_bars():
     close = np.linspace(100, 200, 300) + np.sin(np.arange(300))
     bench = np.linspace(100, 300, 300)  # monotone up: no negative bench returns
     dfd = pl.DataFrame({"close": close, "bench": bench})
+    out = dfd.select(quant.downside_beta("close", "bench", window=60).alias("v"))["v"]
+    assert out.drop_nulls().len() == 0
+
+
+def test_downside_beta_null_when_down_returns_degenerate():
+    # A benchmark toggling between exactly two price levels makes every *down*
+    # bar an identical simple return (110 -> 100 each time): the down subset has
+    # a single distinct value, so the slope is undefined (min == max guard).
+    n = 400
+    bench = np.where(np.arange(n) % 2 == 0, 110.0, 100.0)
+    asset = 100 + np.arange(n) * 0.1  # a non-degenerate asset path
+    dfd = pl.DataFrame({"close": asset, "bench": bench})
     out = dfd.select(quant.downside_beta("close", "bench", window=60).alias("v"))["v"]
     assert out.drop_nulls().len() == 0
 

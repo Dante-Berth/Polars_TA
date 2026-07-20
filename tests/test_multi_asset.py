@@ -75,6 +75,7 @@ INDICATORS = {
     "rolling_cvar": quant.rolling_cvar("close", window=100),
     "max_drawdown": quant.rolling_max_drawdown("close", window=100),
     "rolling_skew": quant.rolling_skew("close", window=60),
+    "jarque_bera": quant.jarque_bera("close", window=60),
     "frac_diff": quant.frac_diff("close", d=0.4, window=100),
     "rolling_autocorr": quant.rolling_autocorr("close", lag=1, window=60),
     "rolling_beta_to": quant.rolling_beta_to("close", "bench", window=60),

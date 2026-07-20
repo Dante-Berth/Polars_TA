@@ -504,7 +504,10 @@ def cornish_fisher_var(
         + (z**3 - 3 * z) / 24.0 * k
         - (2 * z**3 - 5 * z) / 36.0 * s.pow(2)
     )
-    var = -(mu + z_cf * sigma)
+    # A zero-dispersion window is a degenerate point mass: skewness/kurtosis are
+    # undefined (NaN), and VaR is just -mu (no tail beyond the point). Guard so
+    # that constant-return windows yield -mu rather than leaking NaN.
+    var = pl.when(sigma == 0).then(-mu).otherwise(-(mu + z_cf * sigma))
     return var.alias(f"cf_var_{int(alpha * 100)}_{window}")
 
 
@@ -563,10 +566,12 @@ def rolling_skew(close: str | pl.Expr, window: int = 60) -> pl.Expr:
 
     Persistent negative skew ("picks up pennies in front of a steamroller") is
     the classic signature of a strategy or regime carrying hidden crash risk;
-    rising positive skew often accompanies momentum/blow-off phases.
+    rising positive skew often accompanies momentum/blow-off phases. A
+    zero-dispersion window (constant returns) has undefined skew and yields
+    null rather than leaking NaN.
     """
     ret = as_expr(close).pct_change()
-    return ret.rolling_skew(window_size=window).alias(f"skew_{window}")
+    return ret.rolling_skew(window_size=window).fill_nan(None).alias(f"skew_{window}")
 
 
 def rolling_kurtosis(close: str | pl.Expr, window: int = 60) -> pl.Expr:
@@ -575,10 +580,16 @@ def rolling_kurtosis(close: str | pl.Expr, window: int = 60) -> pl.Expr:
     Excess kurtosis (normal distribution -> 0) rising well above 0 flags
     fat tails / clustered extreme moves — a warning that Gaussian VaR and any
     downstream mean-variance sizing are understating tail risk. Pairs naturally
-    with :func:`cornish_fisher_var`, which uses exactly this moment.
+    with :func:`cornish_fisher_var`, which uses exactly this moment. A
+    zero-dispersion window (constant returns) has undefined kurtosis and yields
+    null rather than leaking NaN.
     """
     ret = as_expr(close).pct_change()
-    return ret.rolling_kurtosis(window_size=window).alias(f"kurtosis_{window}")
+    return (
+        ret.rolling_kurtosis(window_size=window)
+        .fill_nan(None)
+        .alias(f"kurtosis_{window}")
+    )
 
 
 def gain_to_pain(close: str | pl.Expr, window: int = 60) -> pl.Expr:
@@ -596,6 +607,31 @@ def gain_to_pain(close: str | pl.Expr, window: int = 60) -> pl.Expr:
     pain = pl.when(ret < 0).then(-ret).otherwise(0.0).rolling_sum(window_size=window)
     safe_pain = pl.when(pain == 0).then(None).otherwise(pain)
     return (total / safe_pain).alias(f"gain_to_pain_{window}")
+
+
+def jarque_bera(close: str | pl.Expr, window: int = 60) -> pl.Expr:
+    """Rolling Jarque-Bera normality test statistic of simple returns.
+
+    ``JB = (n / 6) * (S**2 + K**2 / 4)`` where ``S`` is the skewness and ``K``
+    the excess kurtosis of the returns in the window. Under the null of
+    normally distributed returns JB is asymptotically chi-squared with 2
+    degrees of freedom, so a value above ~6 rejects normality at the 5% level
+    (~9.2 at 1%). It is a single scalar that rises when *either* tail asymmetry
+    or fat-tailedness appears — a compact "how non-Gaussian has this regime
+    been" gate that subsumes :func:`rolling_skew` and :func:`rolling_kurtosis`
+    into one number, which matters because any downstream Gaussian VaR /
+    mean-variance sizing is only valid while JB stays small.
+
+    Reuses the same biased (population) moments Polars' ``rolling_skew`` /
+    ``rolling_kurtosis`` report, so it is consistent with those two features
+    rather than a separately-normalized estimate.
+    """
+    ret = as_expr(close).pct_change()
+    s = ret.rolling_skew(window_size=window)
+    k = ret.rolling_kurtosis(window_size=window)  # excess kurtosis
+    jb = (window / 6.0) * (s.pow(2) + k.pow(2) / 4.0)
+    # A zero-dispersion window has undefined moments; null rather than NaN.
+    return jb.fill_nan(None).alias(f"jarque_bera_{window}")
 
 
 # ---------------------------------------------------------------------------
@@ -779,13 +815,14 @@ def downside_beta(
                 continue
             bd = bw[mask]
             ad = aw[mask]
-            var_b = bd.var()
-            # A single distinct down-benchmark return (zero-variance subset)
-            # makes the slope undefined; skip it rather than divide by zero,
-            # mirroring how the shared rolling_beta helper guards its windows.
-            if var_b == 0:
+            # A down subset with a single distinct benchmark return makes the
+            # slope undefined; skip it rather than divide by (near-)zero
+            # variance, mirroring how the shared rolling_beta helper guards its
+            # windows. Test min == max rather than var() == 0.0, since the
+            # variance of identical floats is a tiny non-zero rounding residual.
+            if bd.min() == bd.max():
                 continue
-            out[i] = float(np.cov(ad, bd, bias=True)[0, 1] / var_b)
+            out[i] = float(np.cov(ad, bd, bias=True)[0, 1] / bd.var())
         return pl.Series(out, dtype=pl.Float64).fill_nan(None)
 
     return (

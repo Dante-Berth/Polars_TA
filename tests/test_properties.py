@@ -20,7 +20,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from polars_ta import microstructure as ms
-from polars_ta import momentum, trend, volatility, volume
+from polars_ta import momentum, quant, trend, volatility, volume
 
 # A representative indicator per input signature, as (name, builder) where the
 # builder takes the relevant column names and returns a single pl.Expr.
@@ -31,6 +31,18 @@ CLOSE_ONLY = {
     "roll_spread": lambda: ms.roll_spread("close", window=20),
     "variance_ratio": lambda: ms.variance_ratio("close", window=20),
     "half_life": lambda: ms.half_life("close", window=30),
+    # New quant close-only features across all four families.
+    "rolling_cvar": lambda: quant.rolling_cvar("close", window=60, alpha=0.05),
+    "cornish_fisher_var": lambda: quant.cornish_fisher_var("close", window=60),
+    "max_drawdown": lambda: quant.rolling_max_drawdown("close", window=40),
+    "calmar": lambda: quant.calmar_ratio("close", window=60),
+    "skew": lambda: quant.rolling_skew("close", window=40),
+    "kurtosis": lambda: quant.rolling_kurtosis("close", window=40),
+    "gain_to_pain": lambda: quant.gain_to_pain("close", window=40),
+    "jarque_bera": lambda: quant.jarque_bera("close", window=40),
+    "frac_diff": lambda: quant.frac_diff("close", d=0.4, window=40),
+    "rolling_autocorr": lambda: quant.rolling_autocorr("close", lag=1, window=40),
+    "momentum_12_1": lambda: quant.momentum_12_1("close", lookback=60, skip=5),
 }
 HLC = {
     "atr": lambda: volatility.average_true_range("high", "low", "close", window=14),
@@ -41,6 +53,17 @@ CLOSE_VOLUME = {
     "kyle": lambda: ms.kyle_lambda("close", "volume", window=20),
     "hasbrouck": lambda: ms.hasbrouck_lambda("close", "volume", window=20),
 }
+# Features that regress an asset against a benchmark carried on the same frame.
+# `rolling_ic` is deliberately excluded here: it correlates against a *forward*
+# return, so it is non-causal by construction and would (correctly) fail the
+# no-lookahead test — it is a research diagnostic, never a live input.
+CLOSE_BENCHMARK = {
+    "rolling_beta_to": lambda: quant.rolling_beta_to("close", "benchmark", window=40),
+    "idiosyncratic_vol": lambda: quant.idiosyncratic_vol(
+        "close", "benchmark", window=40
+    ),
+    "downside_beta": lambda: quant.downside_beta("close", "benchmark", window=40),
+}
 
 
 def _make_df(prices: list[float], n: int) -> pl.DataFrame:
@@ -50,8 +73,20 @@ def _make_df(prices: list[float], n: int) -> pl.DataFrame:
     low = close - np.abs(close) * 0.001 - 0.01
     open_ = np.concatenate([[close[0]], close[:-1]])
     vol = np.linspace(1_000, 5_000, len(close))
+    # A deterministic benchmark derived from the *same-or-earlier* close bars
+    # (a one-bar lag plus a constant tilt) so it is a distinct, positive series
+    # with genuine down-bars while never depending on any future close — which
+    # keeps the causality property well-defined for the benchmark features.
+    benchmark = np.concatenate([[close[0]], close[:-1]]) * 1.01 + 5.0
     return pl.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": vol}
+        {
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": vol,
+            "benchmark": benchmark,
+        }
     )
 
 
@@ -67,6 +102,7 @@ def _all_builders():
     yield from CLOSE_ONLY.items()
     yield from HLC.items()
     yield from CLOSE_VOLUME.items()
+    yield from CLOSE_BENCHMARK.items()
 
 
 @settings(max_examples=40, deadline=None)

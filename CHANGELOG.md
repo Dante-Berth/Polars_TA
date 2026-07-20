@@ -17,9 +17,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     crash risk symmetric vol misses), `rolling_max_drawdown` (causal, trailing
     peak), and `calmar_ratio` (annualized return per unit of worst-case path
     pain).
-  - **Distribution shape:** `rolling_skew`, `rolling_kurtosis` (excess), and
-    `gain_to_pain` (net move per unit of downside suffered) — leading
-    indicators of regime fragility that complement the entropy tools.
+  - **Distribution shape:** `rolling_skew`, `rolling_kurtosis` (excess),
+    `gain_to_pain` (net move per unit of downside suffered), and `jarque_bera`
+    (a single normality-test statistic that rises when either tail asymmetry
+    or fat-tailedness appears) — leading indicators of regime fragility that
+    complement the entropy tools.
   - **Signal conditioning:** `frac_diff` (fixed-width fractional
     differentiation, López de Prado *AFML* ch. 5 — stationarity while
     retaining long memory), `rolling_autocorr`, and `rolling_ic` (rolling
