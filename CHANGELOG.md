@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- New `quant` portfolio/risk features across four families that retail TA
+  libraries typically omit — all pure Polars expressions with the library's
+  standard null warm-up and `.over("symbol")` guarantees:
+  - **Tail risk & drawdown:** `rolling_cvar` (Conditional VaR / expected
+    shortfall — a coherent risk measure, unlike VaR),
+    `cornish_fisher_var` (skew/kurtosis-adjusted "modified VaR" that captures
+    crash risk symmetric vol misses), `rolling_max_drawdown` (causal, trailing
+    peak), and `calmar_ratio` (annualized return per unit of worst-case path
+    pain).
+  - **Distribution shape:** `rolling_skew`, `rolling_kurtosis` (excess), and
+    `gain_to_pain` (net move per unit of downside suffered) — leading
+    indicators of regime fragility that complement the entropy tools.
+  - **Signal conditioning:** `frac_diff` (fixed-width fractional
+    differentiation, López de Prado *AFML* ch. 5 — stationarity while
+    retaining long memory), `rolling_autocorr`, and `rolling_ic` (rolling
+    information coefficient for alpha-decay monitoring; documented as a
+    forward-looking research diagnostic, never a live input).
+  - **Cross-sectional / factor plumbing:** `rolling_beta_to`,
+    `idiosyncratic_vol` (residual vol a beta hedge leaves behind),
+    `downside_beta` (Ang-Chen / Bawa-Lindenberg, estimated only on
+    down-benchmark bars), and `momentum_12_1` (Jegadeesh-Titman skip-a-month
+    momentum factor). Combine the cross-sectional ones with
+    `.over(timestamp)` and the existing `cross_sectional_rank` / `zscore`.
+
 - New `quant.regime_conditional_signal`: a compositional building block that
   switches between two pre-computed signal expressions based on a regime
   score (a hard threshold switch, not a smooth blend) — e.g. trend-follow

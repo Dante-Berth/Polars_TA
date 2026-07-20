@@ -19,12 +19,14 @@ from polars_ta import momentum, quant, trend, volatility, volume
 def _make_ohlcv(n: int, seed: int) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     close = 100 + np.cumsum(rng.normal(0, 1, n))
+    bench = 100 + np.cumsum(rng.normal(0, 1, n))
     return pl.DataFrame(
         {
             "high": close + rng.uniform(0.1, 1.0, n),
             "low": close - rng.uniform(0.1, 1.0, n),
             "close": close,
             "volume": rng.uniform(1e4, 1e5, n),
+            "bench": bench,
         }
     )
 
@@ -68,6 +70,17 @@ INDICATORS = {
     "lee_ready_trade_sign": ms.lee_ready_trade_sign("close"),
     "shannon_entropy": ms.shannon_entropy("close", window=50, n_bins=10),
     "approximate_entropy": ms.approximate_entropy("close", window=30),
+    # New quant features — include both map_batches kernels (cvar, downside_beta)
+    # and pure-expression rolling/factor features most at risk of group leakage.
+    "rolling_cvar": quant.rolling_cvar("close", window=100),
+    "max_drawdown": quant.rolling_max_drawdown("close", window=100),
+    "rolling_skew": quant.rolling_skew("close", window=60),
+    "frac_diff": quant.frac_diff("close", d=0.4, window=100),
+    "rolling_autocorr": quant.rolling_autocorr("close", lag=1, window=60),
+    "rolling_beta_to": quant.rolling_beta_to("close", "bench", window=60),
+    "idiosyncratic_vol": quant.idiosyncratic_vol("close", "bench", window=60),
+    "downside_beta": quant.downside_beta("close", "bench", window=60),
+    "momentum_12_1": quant.momentum_12_1("close", lookback=120, skip=21),
 }
 
 

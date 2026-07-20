@@ -136,6 +136,116 @@ null output rather than silently falling back to either branch. See the
 ["Regime-conditional composite signal"](examples.md#regime-conditional-composite-signal-on-real-btcusdt-data)
 example for a full runnable version plotted on real BTCUSDT data.
 
+## Size positions by tail risk, not just volatility
+
+Volatility is symmetric; the left tail and the equity-curve path are what
+actually hurt. The `quant` risk block gives you those directly, as rolling
+causal expressions:
+
+```python
+from polars_ta import quant
+
+out = df.with_columns(
+    # Expected shortfall: mean of the worst 5% of returns (a *coherent* risk
+    # measure — unlike VaR, it's sub-additive), reported as a positive loss.
+    quant.rolling_cvar("close", window=100, alpha=0.05).alias("cvar_5"),
+    # Modified (Cornish-Fisher) VaR: the Gaussian VaR quantile corrected for
+    # the window's skewness and excess kurtosis, so it doesn't understate
+    # crash risk the way symmetric vol does.
+    quant.cornish_fisher_var("close", window=100, alpha=0.05).alias("cf_var_5"),
+    # Worst peak-to-trough decline over the trailing window (a positive
+    # fraction), and return per unit of that pain.
+    quant.rolling_max_drawdown("close", window=252).alias("mdd"),
+    quant.calmar_ratio("close", window=252).alias("calmar"),
+)
+```
+
+A common pattern is inverse-risk sizing: scale each bar's target exposure by
+`1 / cvar_5` (clipped), so the book leans out exactly as the tail fattens.
+`calmar_ratio` and `gain_to_pain` are null in windows where the metric is
+undefined (no drawdown, no losing bars) rather than reporting a fabricated
+infinity — filter those out before ranking.
+
+Distribution-shape features are leading indicators of regime fragility:
+persistent negative [`rolling_skew`](api.md#polars_ta.quant.rolling_skew) and
+rising [`rolling_kurtosis`](api.md#polars_ta.quant.rolling_kurtosis) flag a
+market becoming crash-prone *before* realized volatility moves.
+
+## Whiten a feature and monitor its alpha decay
+
+A raw price series is non-stationary (it carries all the memory); its return
+series is stationary but has thrown that memory away.
+[`quant.frac_diff`](api.md#polars_ta.quant.frac_diff) sits between the two —
+fractional differentiation (López de Prado, *Advances in Financial ML*, ch. 5)
+makes a series (approximately) stationary while retaining most of its long
+memory:
+
+```python
+from polars_ta import quant
+
+out = df.with_columns(
+    # d in (0, 1): d->1 is an ordinary log return (stationary, memoryless),
+    # d->0 keeps almost all memory. d~0.3-0.5 often passes an ADF test while
+    # still predicting.
+    quant.frac_diff("close", d=0.4, window=100).alias("fd_close"),
+)
+```
+
+To check whether a signal still works, track its **information coefficient** —
+the rolling correlation between the signal and the realized *forward* return.
+Build the forward return explicitly, then correlate:
+
+```python
+out = df.with_columns(
+    my_signal.alias("signal"),
+    pl.col("close").pct_change().shift(-5).alias("fwd_ret_5"),
+).with_columns(
+    quant.rolling_ic("signal", "fwd_ret_5", window=100).alias("ic"),
+)
+```
+
+!!! warning "The IC series is forward-looking by construction"
+    `rolling_ic` correlates against a *future* return, so it is a research /
+    monitoring diagnostic only — a decaying IC is the earliest sign the alpha
+    is dying — and must **never** be fed back in as a live trading input. That
+    would be look-ahead leakage.
+
+## Build a factor book: beta, idiosyncratic vol, downside beta, momentum
+
+For a cross-sectional/factor strategy you need each asset's relationship to a
+benchmark *through time*, carried on the same frame as a `benchmark` price
+column:
+
+```python
+from polars_ta import quant
+
+out = df.with_columns(
+    # Market beta of the asset's returns on the benchmark's.
+    quant.rolling_beta_to("close", "benchmark", window=60).alias("beta"),
+    # The vol a beta hedge leaves behind — the tradeable, asset-specific risk.
+    quant.idiosyncratic_vol("close", "benchmark", window=60).alias("idio_vol"),
+    # Beta estimated only on bars where the benchmark fell (Ang-Chen): the
+    # regime that matters for tail hedging, which symmetric beta averages away.
+    quant.downside_beta("close", "benchmark", window=60).alias("down_beta"),
+    # Jegadeesh-Titman "12-1" momentum: return over the lookback but skipping
+    # the most recent month, to drop short-term reversal.
+    quant.momentum_12_1("close", lookback=252, skip=21).alias("mom_12_1"),
+)
+```
+
+Every one of these is a per-symbol rolling expression, so on a long-format
+multi-asset frame apply it with `.over("symbol")`, then rank the momentum
+factor across symbols at each timestamp by chaining the cross-sectional
+helpers above:
+
+```python
+out = df.with_columns(
+    quant.momentum_12_1("close").over("symbol").alias("mom")
+).with_columns(
+    quant.cross_sectional_rank("mom").over("timestamp").alias("mom_rank")
+)
+```
+
 ## Run on data larger than memory (streaming)
 
 Pass `engine="streaming"` to `.collect()` — no changes to the indicator calls themselves:

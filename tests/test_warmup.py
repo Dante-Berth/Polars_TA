@@ -23,6 +23,7 @@ N = 400
 def _make_df() -> pl.DataFrame:
     rng = np.random.default_rng(3)
     close = 100 + np.cumsum(rng.normal(0, 1, N))
+    bench = 100 + np.cumsum(rng.normal(0, 1, N))
     return pl.DataFrame(
         {
             "open": np.concatenate([[close[0]], close[:-1]]),
@@ -30,6 +31,7 @@ def _make_df() -> pl.DataFrame:
             "low": close - rng.uniform(0.1, 1.0, N),
             "close": close,
             "volume": rng.uniform(1e4, 1e5, N),
+            "bench": bench,
         }
     )
 
@@ -69,6 +71,14 @@ CASES = {
     "lee_ready_trade_sign": (ms.lee_ready_trade_sign("close"), 0),
     "shannon_entropy_50": (ms.shannon_entropy("close", window=50, n_bins=10), 49),
     "approx_entropy_30": (ms.approximate_entropy("close", window=30), 29),
+    "max_drawdown_100": (quant.rolling_max_drawdown("close", window=100), 198),
+    "skew_60": (quant.rolling_skew("close", window=60), 60),
+    "kurtosis_60": (quant.rolling_kurtosis("close", window=60), 60),
+    "cf_var_5_100": (quant.cornish_fisher_var("close", window=100), 100),
+    "frac_diff_04_100": (quant.frac_diff("close", d=0.4, window=100), 99),
+    "momentum_12_1": (quant.momentum_12_1("close", lookback=252, skip=21), 252),
+    "beta_60": (quant.rolling_beta_to("close", "bench", window=60), 119),
+    "idio_vol_60": (quant.idiosyncratic_vol("close", "bench", window=60), 119),
 }
 
 
