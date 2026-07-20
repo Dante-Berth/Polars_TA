@@ -79,8 +79,8 @@ been computed on its own frame.
 ## Rank symbols cross-sectionally at each timestamp
 
 Every indicator above computes a rolling statistic *through time* for one
-symbol via `.over("symbol")`. [`quant.cross_sectional_zscore`](api.md#polars_ta.quant.cross_sectional_zscore)
-and [`quant.cross_sectional_rank`](api.md#polars_ta.quant.cross_sectional_rank)
+symbol via `.over("symbol")`. [`quant.cross_sectional_zscore`](api/quant.md#polars_ta.quant.cross_sectional_zscore)
+and [`quant.cross_sectional_rank`](api/quant.md#polars_ta.quant.cross_sectional_rank)
 do the opposite: they compare symbols *against each other at the same
 instant*, the building block of a factor/ranking strategy. Group by the
 timestamp column instead of the symbol column:
@@ -108,7 +108,7 @@ integer rank instead of a `[0, 1]` percentile.
 
 ## Add calendar/seasonality features to a feature pipeline
 
-[`polars_ta.calendar`](api.md#polars_ta.calendar) is the one module that takes a
+[`polars_ta.calendar`](api/calendar.md#polars_ta.calendar) is the one module that takes a
 timestamp column instead of price/volume. Convert an epoch column to a real
 `pl.Datetime` first with `pl.from_epoch`, then derive day-of-week, intraday
 position, and month-end features:
@@ -147,10 +147,10 @@ building blocks to define your own session boundaries per instrument.
 
 ## Regime-conditional trend/mean-reversion switch
 
-[`quant.regime_conditional_signal`](api.md#polars_ta.quant.regime_conditional_signal)
+[`quant.regime_conditional_signal`](api/quant.md#polars_ta.quant.regime_conditional_signal)
 switches between two already-computed signal expressions based on a regime
 score, row by row — a hard threshold switch, not a smooth blend. Wire it to
-[`quant.hurst_ribbon`](api.md#polars_ta.quant.hurst_ribbon) to trend-follow
+[`quant.hurst_ribbon`](api/quant.md#polars_ta.quant.hurst_ribbon) to trend-follow
 when the market is persistent and mean-revert when it isn't:
 
 ```python
@@ -208,15 +208,15 @@ undefined (no drawdown, no losing bars) rather than reporting a fabricated
 infinity — filter those out before ranking.
 
 Distribution-shape features are leading indicators of regime fragility:
-persistent negative [`rolling_skew`](api.md#polars_ta.quant.rolling_skew) and
-rising [`rolling_kurtosis`](api.md#polars_ta.quant.rolling_kurtosis) flag a
+persistent negative [`rolling_skew`](api/quant.md#polars_ta.quant.rolling_skew) and
+rising [`rolling_kurtosis`](api/quant.md#polars_ta.quant.rolling_kurtosis) flag a
 market becoming crash-prone *before* realized volatility moves.
 
 ## Whiten a feature and monitor its alpha decay
 
 A raw price series is non-stationary (it carries all the memory); its return
 series is stationary but has thrown that memory away.
-[`quant.frac_diff`](api.md#polars_ta.quant.frac_diff) sits between the two —
+[`quant.frac_diff`](api/quant.md#polars_ta.quant.frac_diff) sits between the two —
 fractional differentiation (López de Prado, *Advances in Financial ML*, ch. 5)
 makes a series (approximately) stationary while retaining most of its long
 memory:

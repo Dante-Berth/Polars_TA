@@ -77,4 +77,4 @@ Two independent tools exist for missing/invalid data:
 
 - [Concepts](concepts.md) explains the design choices behind the expression-first API.
 - [How-to guides](how_to_guides.md) has task-oriented recipes (streaming, backtesting frames, cleaning data).
-- The [API reference](api.md) lists every function with its full signature.
+- The [API reference](api/index.md) lists every function with its full signature.

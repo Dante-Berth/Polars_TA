@@ -10,7 +10,18 @@ nav:
   - Concepts: concepts.md
   - How-to guides: how_to_guides.md
   - Examples: examples.md
-  - API reference: api.md
+  - API reference:
+      - api/index.md
+      - Momentum: api/momentum.md
+      - Trend: api/trend.md
+      - Volatility: api/volatility.md
+      - Volume: api/volume.md
+      - Returns: api/returns.md
+      - Quant: api/quant.md
+      - Microstructure: api/microstructure.md
+      - Calendar / seasonality: api/calendar.md
+      - Expression namespace: api/namespace.md
+      - Utilities: api/utils.md
   - Changelog: changelog.md
 
 theme:
@@ -32,8 +43,11 @@ theme:
         name: Switch to light mode
   features:
     - navigation.sections
+    - navigation.indexes
     - navigation.top
+    - navigation.tracking
     - content.code.copy
+    - content.code.annotate
     - toc.follow
 
 markdown_extensions:
@@ -54,8 +68,17 @@ plugins:
         python:
           options:
             docstring_style: google
+            docstring_section_style: table
             show_source: true
             show_root_heading: true
+            show_root_toc_entry: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            heading_level: 2
+            members_order: source
             merge_init_into_class: true
 
 extra_css:

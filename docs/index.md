@@ -18,4 +18,4 @@ Every indicator is a plain `pl.Expr`, so it composes naturally with `.with_colum
 - Want the reasoning behind design choices (expressions, `fillna`, streaming)? See [Concepts](concepts.md).
 - Need a recipe for a specific task? See [How-to guides](how_to_guides.md).
 - Want to see indicators combined on real-shaped data? See [Examples](examples.md).
-- Looking for a specific function signature? See the [API reference](api.md).
+- Looking for a specific function signature? See the [API reference](api/index.md).
