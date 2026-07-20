@@ -104,6 +104,38 @@ windows (e.g. FX Asian/London/NY hours) — those are UTC-hour conventions that
 vary by instrument. `hour_of_day` / `minute_of_day` give you the raw
 building blocks to define your own session boundaries per instrument.
 
+## Regime-conditional trend/mean-reversion switch
+
+[`quant.regime_conditional_signal`](api.md#polars_ta.quant.regime_conditional_signal)
+switches between two already-computed signal expressions based on a regime
+score, row by row — a hard threshold switch, not a smooth blend. Wire it to
+[`quant.hurst_ribbon`](api.md#polars_ta.quant.hurst_ribbon) to trend-follow
+when the market is persistent and mean-revert when it isn't:
+
+```python
+from polars_ta import quant, trend, volatility
+
+trend_signal = trend.ema_indicator("close", window=10) - trend.ema_indicator(
+    "close", window=30
+)
+reversion_signal = volatility.bollinger_pband("close") - 0.5
+
+out = df.with_columns(
+    **quant.hurst_ribbon("close", scales=(16, 32, 64))
+).with_columns(
+    quant.regime_conditional_signal(
+        "h_ribbon_avg", 0.5, trend_signal, reversion_signal
+    ).alias("composite_signal")
+)
+```
+
+`regime` doesn't have to be Hurst — any expression works (ADX, Shannon
+entropy, a volatility z-score), and `signal_above`/`signal_below` can be any
+two pre-computed indicator expressions. A null `regime` value produces a
+null output rather than silently falling back to either branch. See the
+["Regime-conditional composite signal"](examples.md#regime-conditional-composite-signal-on-real-btcusdt-data)
+example for a full runnable version plotted on real BTCUSDT data.
+
 ## Run on data larger than memory (streaming)
 
 Pass `engine="streaming"` to `.collect()` — no changes to the indicator calls themselves:

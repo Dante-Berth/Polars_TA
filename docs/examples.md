@@ -143,6 +143,26 @@ uv run python examples/plot_entropy.py
 
 **A cost note on `approximate_entropy`.** Its rolling window uses the textbook O(window²) pairwise-distance algorithm (no known faster exact form), so it's deliberately run here with a small `window=30` — see its docstring for the tradeoff before increasing it on a large frame.
 
+## Regime-conditional composite signal on real BTCUSDT data
+
+[`examples/plot_regime_conditional_signal.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_regime_conditional_signal.py) is a capstone example: it wires [`quant.regime_conditional_signal`](api.md#polars_ta.quant.regime_conditional_signal) to the existing Hurst ribbon to switch between a trend-following signal and a mean-reversion signal, on the same 5,000-bar BTCUSDT fixture.
+
+```bash
+uv run python examples/plot_regime_conditional_signal.py
+```
+
+![BTCUSDT regime-conditional signal: price shaded by active regime, Hurst ribbon, and the composite signal switching between a trend-following and mean-reversion signal](assets/regime_conditional_signal.png)
+
+### Reading the three panels
+
+**Panel 1 — Price, shaded by which branch is active.** Green shading marks bars where the Hurst ribbon average is `≥ 0.5` (trend-following signal active); orange marks `< 0.5` (mean-reversion signal active). Notice how often the shading flips — this is the same instability observed in the [regime dashboard](#professional-desk-regime-dashboard-on-real-btcusdt-data) example, and it's exactly the situation this helper is built for: a single fixed strategy would fight itself through these flips, so the composite switches instead.
+
+**Panel 2 — Regime score.** [`quant.hurst_ribbon`](api.md#polars_ta.quant.hurst_ribbon)'s `h_ribbon_avg`, the same regime score used to shade panel 1.
+
+**Panel 3 — The two candidate signals and the composite.** The trend signal (green, mostly hidden under the composite) is an EMA(10)-EMA(30) cross, normalized by ATR so it lands on a comparable scale to the reversion signal (tan) — a Bollinger %B deviation from 0.5, scaled by 4. [`quant.regime_conditional_signal`](api.md#polars_ta.quant.regime_conditional_signal) (red) is the hard row-by-row switch between them: it visibly tracks the trend signal during green-shaded regions and the reversion signal during orange-shaded ones, with a discrete jump exactly at each regime flip rather than a smooth blend.
+
+`regime_conditional_signal` is a compositional building block, not a Hurst-specific helper — swap in any regime score (ADX, Shannon entropy, a volatility z-score) and any two pre-computed signal expressions. See the ["Regime-conditional trend/mean-reversion switch"](how_to_guides.md#regime-conditional-trendmean-reversion-switch) how-to guide for the minimal version of this pattern.
+
 ## More indicator combinations
 
 ### Trend + volatility regime filter

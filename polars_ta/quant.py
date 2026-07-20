@@ -309,3 +309,47 @@ def amihud_illiquidity(close: str, volume: str, window: int = 21) -> pl.Expr:
 
     # Multiply by 10^6 to make the numbers human-readable (standard practice)
     return (amihud * 1_000_000).alias(f"amihud_illiq_{window}")
+
+
+def regime_conditional_signal(
+    regime: str | pl.Expr,
+    threshold: float,
+    signal_above: str | pl.Expr,
+    signal_below: str | pl.Expr,
+    above_or_equal: bool = True,
+) -> pl.Expr:
+    """Switch between two pre-computed signal expressions based on a
+    regime score, row by row: `signal_above` where `regime >= threshold`
+    (or `>` if `above_or_equal=False`), `signal_below` otherwise.
+
+    This is a hard switch, not a smooth blend — the output jumps discretely
+    at the threshold rather than fading between the two signals, which
+    keeps the composite as interpretable as its inputs (no intermediate
+    "40% trend-following" values to explain) at the cost of a
+    discontinuity exactly at the boundary. This is a compositional building
+    block, not a Hurst-specific helper: `regime` can be any expression —
+    `quant.hurst_ribbon(...)["h_ribbon_avg"]`, an ADX reading, a Shannon
+    entropy score — and `signal_above`/`signal_below` can be any two
+    already-computed indicator expressions you want the regime to arbitrate
+    between (they are typically named differently, e.g. a fast EMA-cross
+    trend signal vs. a Bollinger %B mean-reversion signal — see the
+    "Regime-conditional trend/mean-reversion switch" how-to guide for a
+    complete example built on `hurst_ribbon`).
+
+    A null `regime` value produces a null output (arbitration is undefined
+    without a regime reading), rather than silently falling back to either
+    branch.
+    """
+    regime_expr = pl.col(regime) if isinstance(regime, str) else regime
+    above = pl.col(signal_above) if isinstance(signal_above, str) else signal_above
+    below = pl.col(signal_below) if isinstance(signal_below, str) else signal_below
+
+    condition = regime_expr >= threshold if above_or_equal else regime_expr > threshold
+    return (
+        pl.when(regime_expr.is_null())
+        .then(None)
+        .when(condition)
+        .then(above)
+        .otherwise(below)
+        .alias("regime_conditional_signal")
+    )

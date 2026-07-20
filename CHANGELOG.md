@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- New `quant.regime_conditional_signal`: a compositional building block that
+  switches between two pre-computed signal expressions based on a regime
+  score (a hard threshold switch, not a smooth blend) — e.g. trend-follow
+  when `hurst_ribbon`'s `h_ribbon_avg >= 0.5`, mean-revert otherwise. Not
+  wired specifically to Hurst: `regime` and the two signal branches can be
+  any expressions. A null regime value produces null output rather than
+  silently falling back to either branch. New
+  `examples/plot_regime_conditional_signal.py` capstone figure wiring it to
+  the existing Hurst ribbon on real BTCUSDT data, plus a
+  "Regime-conditional trend/mean-reversion switch" how-to guide.
+
 - New `polars_ta.calendar` module: `day_of_week`, `is_weekend`,
   `hour_of_day`, `minute_of_day`, `time_since_midnight`, `month_of_year`,
   `is_month_end`, and `bars_since_session_open`. The first module whose
