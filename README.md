@@ -72,7 +72,7 @@ The trend & volume toolkit — Ichimoku cloud, ADX with +DI/-DI, Aroon oscillato
 | `polars_ta.volume` | ADI, OBV, Chaikin Money Flow, Force Index, Ease of Movement, VPT, NVI, Money Flow Index, VWAP, Klinger Volume Oscillator |
 | `polars_ta.others` | Daily return, daily log return, cumulative return |
 | `polars_ta.quant` | Garman-Klass, Parkinson, Rogers-Satchell & Yang-Zhang volatility, EWMA (RiskMetrics) volatility, rolling z-score, volatility-adjusted momentum, micro-price proxy, rolling Sharpe/Sortino, historical volatility, Amihud illiquidity, multi-scale Hurst ribbon, relative volume, volatility z-score, cross-sectional rank/z-score |
-| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Corwin-Schultz high-low spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Lee-Ready trade-side classification, Hurst exponent (R/S), half-life of mean reversion, Lo-MacKinlay variance ratio |
+| `polars_ta.microstructure` | VPIN (order-flow toxicity), Roll's implied spread, Corwin-Schultz high-low spread, Kyle's lambda, Hasbrouck's lambda, effective spread, Lee-Ready trade-side classification, Hurst exponent (R/S), half-life of mean reversion, Lo-MacKinlay variance ratio, Shannon entropy, approximate entropy |
 
 Every function also has an equivalent `staticmethod` on a `*Indicators` class (`MomentumIndicators`, `TrendIndicators`, `VolatilityIndicators`, `VolumeIndicators`) if you prefer namespaced access.
 

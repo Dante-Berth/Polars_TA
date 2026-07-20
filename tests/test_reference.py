@@ -3,6 +3,7 @@
 import numpy as np
 import polars as pl
 
+from polars_ta import microstructure as ms
 from polars_ta import momentum, trend, volatility
 
 
@@ -426,3 +427,30 @@ def test_hull_moving_average_matches_reference():
     raw_hma = 2 * wma(close, half) - wma(close, window)
     ref = wma(raw_hma, sq)
     _compare(ours, ref, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Shannon entropy
+# ---------------------------------------------------------------------------
+
+
+def test_shannon_entropy_matches_reference():
+    df = _make_ohlcv()
+    close = df["close"].to_numpy()
+    window, n_bins = 50, 10
+    ours = df.select(
+        ms.shannon_entropy("close", window=window, n_bins=n_bins).alias("v")
+    )["v"].to_numpy()
+
+    log_ret = np.diff(np.log(close), prepend=np.nan)
+    ref = np.full(len(close), np.nan)
+    for i in range(window - 1, len(close)):
+        w = log_ret[i - window + 1 : i + 1]
+        w = w[~np.isnan(w)]
+        if len(w) < n_bins:
+            continue
+        counts, _ = np.histogram(w, bins=n_bins)
+        probs = counts[counts > 0] / len(w)
+        entropy = -np.sum(probs * np.log2(probs))
+        ref[i] = entropy / np.log2(n_bins)
+    _compare(ours, ref, atol=1e-9)

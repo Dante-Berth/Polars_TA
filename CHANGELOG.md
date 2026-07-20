@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- New microstructure/regime indicators: `microstructure.shannon_entropy`
+  (normalized entropy of the binned return distribution — distributional
+  concentration, not directional persistence) and
+  `microstructure.approximate_entropy` (pattern predictability; documented
+  as O(window²) per row, so it's meant for small windows as a slow-moving
+  regime gate, not a per-bar signal over a large lookback). New
+  `examples/plot_entropy.py` figure and docs section showing both against
+  the existing Hurst ribbon on real BTCUSDT data.
+
 - New trend indicators: `trend.supertrend` (ATR-banded stop-and-reverse
   line), `trend.hull_moving_average` (lower-lag alternative to SMA/EMA), and
   `trend.elder_bull_power` / `trend.elder_bear_power` (Elder Ray).

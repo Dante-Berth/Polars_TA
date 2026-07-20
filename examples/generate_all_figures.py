@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from plot_classic_indicators import main as classic_main  # noqa: E402
+from plot_entropy import main as entropy_main  # noqa: E402
 from plot_liquidity import main as liquidity_main  # noqa: E402
 from plot_new_indicators import main as new_indicators_main  # noqa: E402
 from plot_regime_dashboard import main as regime_main  # noqa: E402
@@ -26,6 +27,7 @@ FIGURES = {
     "liquidity & microstructure": liquidity_main,
     "regime dashboard": regime_main,
     "new indicators": new_indicators_main,
+    "entropy": entropy_main,
 }
 
 

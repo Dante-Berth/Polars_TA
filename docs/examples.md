@@ -123,6 +123,26 @@ uv run python examples/plot_new_indicators.py
 
 Two indicators from this batch don't appear in the figure because they aren't single time-series lines: [`microstructure.lee_ready_trade_sign`](api.md#polars_ta.microstructure.lee_ready_trade_sign) classifies each bar as buy/sell/unclassifiable (`+1`/`-1`/`0`) rather than producing a continuous line, and [`quant.cross_sectional_zscore`](api.md#polars_ta.quant.cross_sectional_zscore) / [`quant.cross_sectional_rank`](api.md#polars_ta.quant.cross_sectional_rank) rank symbols against each other at each timestamp on a multi-asset frame — see [How-to guides](how_to_guides.md#rank-symbols-cross-sectionally-at-each-timestamp) for a runnable example of both.
 
+## Entropy-based regime indicators on real BTCUSDT data
+
+[`examples/plot_entropy.py`](https://github.com/Dante-Berth/Polars_TA/blob/main/examples/plot_entropy.py) plots the two entropy-based complexity indicators against the multi-scale Hurst ribbon on the same 5,000-bar BTCUSDT fixture.
+
+```bash
+uv run python examples/plot_entropy.py
+```
+
+![BTCUSDT entropy indicators: Shannon entropy vs Hurst ribbon, and approximate entropy](assets/entropy.png)
+
+### Reading the three panels
+
+**Panel 1 — Price.** Raw BTCUSDT close, for visual reference against the two panels below.
+
+**Panel 2 — Shannon entropy vs. Hurst ribbon.** [`microstructure.shannon_entropy`](api.md#polars_ta.microstructure.shannon_entropy) (orange) bins the window's log returns and measures how uniformly they're spread across bins, normalized to `[0, 1]`. [`quant.hurst_ribbon`](api.md#polars_ta.quant.hurst_ribbon)'s average (blue, right axis) measures *directional persistence* instead. The two disagree on purpose: Shannon entropy stays consistently high here (returns are well-spread across bins most of the time — this is what noisy real crypto data looks like) while the Hurst ribbon still swings between trending and mean-reverting regimes underneath that noise. A high-entropy, high-Hurst bar means "noisy but trending"; a high-entropy, low-Hurst bar means "noisy and choppy" — two very different trading conditions that either signal alone would blur together.
+
+**Panel 3 — Approximate entropy.** [`microstructure.approximate_entropy`](api.md#polars_ta.microstructure.approximate_entropy) measures how often short return patterns repeat — low values mean the recent path is more self-similar/predictable, high values mean it isn't. Watch bar ~2050: it spikes sharply, coinciding with the same sharp volatility event visible in the price panel and in the VPIN spike from the [regime dashboard](#professional-desk-regime-dashboard-on-real-btcusdt-data) above — a sudden break in pattern regularity is itself a marker of a regime change, not just elevated volatility.
+
+**A cost note on `approximate_entropy`.** Its rolling window uses the textbook O(window²) pairwise-distance algorithm (no known faster exact form), so it's deliberately run here with a small `window=30` — see its docstring for the tradeoff before increasing it on a large frame.
+
 ## More indicator combinations
 
 ### Trend + volatility regime filter

@@ -145,3 +145,64 @@ def test_vpin_bucket_never_fills():
     # every row is warm-up null.
     out = DF.select(ms.vpin("close", "volume", bucket_size=1e12).alias("v"))["v"]
     assert out.null_count() == len(out)
+
+
+def test_shannon_entropy_constant_series_is_zero():
+    # A flat price -> all-zero returns -> every observation falls in one bin
+    # -> minimum possible entropy.
+    flat = pl.DataFrame({"close": np.full(100, 100.0)})
+    out = flat.select(ms.shannon_entropy("close", window=50, n_bins=10).alias("v"))[
+        "v"
+    ]
+    vals = out.drop_nulls().to_numpy()
+    assert len(vals) > 0
+    np.testing.assert_allclose(vals, 0.0, atol=1e-12)
+
+
+def test_shannon_entropy_uniform_noise_is_near_one():
+    # Returns spread roughly uniformly across bins -> entropy near the
+    # theoretical maximum of 1.0.
+    rng = np.random.default_rng(42)
+    close = 100 + np.cumsum(rng.uniform(-1, 1, 500))
+    df = pl.DataFrame({"close": close})
+    out = df.select(ms.shannon_entropy("close", window=200, n_bins=10).alias("v"))["v"]
+    vals = out.drop_nulls().to_numpy()
+    assert vals.mean() > 0.85
+
+
+def test_approximate_entropy_constant_series_is_null():
+    # Zero-variance window -> r (similarity tolerance) is 0 -> undefined,
+    # reported as null rather than a fabricated 0.
+    flat = pl.DataFrame({"close": np.full(60, 100.0)})
+    out = flat.select(ms.approximate_entropy("close", window=30).alias("v"))["v"]
+    assert out.null_count() == len(out)
+
+
+def test_shannon_entropy_fewer_returns_than_bins_is_null():
+    # window=5 with n_bins=10: even a full window can't populate 10 bins
+    # meaningfully, so every row stays null.
+    short = pl.DataFrame({"close": DF["close"].to_numpy()[:20]})
+    out = short.select(
+        ms.shannon_entropy("close", window=5, n_bins=10).alias("v")
+    )["v"]
+    assert out.null_count() == len(out)
+
+
+def test_approximate_entropy_window_shorter_than_m_plus_2_is_null():
+    # window=3 with the default m=2 means every window has n < m+2 -> null.
+    short = pl.DataFrame({"close": DF["close"].to_numpy()[:20]})
+    out = short.select(ms.approximate_entropy("close", window=3, m=2).alias("v"))["v"]
+    assert out.null_count() == len(out)
+
+
+def test_approximate_entropy_repeating_pattern_is_low():
+    # A perfectly repeating pattern is maximally predictable -> ApEn near 0.
+    pattern = np.tile([1.0, 2.0, 1.0, 0.0], 30)
+    close = 100 + np.cumsum(pattern)
+    df = pl.DataFrame({"close": close})
+    out = df.select(
+        ms.approximate_entropy("close", window=40, m=2, r_frac=0.2).alias("v")
+    )["v"]
+    vals = out.drop_nulls().to_numpy()
+    assert len(vals) > 0
+    assert vals.mean() < 0.3

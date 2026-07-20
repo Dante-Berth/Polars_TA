@@ -439,3 +439,129 @@ def half_life(close: str | pl.Expr, window: int = 60) -> pl.Expr:
     valid = (b < 0) & (b > -1)
     hl = pl.when(valid).then(-math.log(2) / (1.0 + b).log()).otherwise(None)
     return hl.alias(f"half_life_{window}")
+
+
+def _shannon_entropy_from_window(x: np.ndarray, n_bins: int) -> float:
+    """Shannon entropy (in bits) of the binned distribution of a single
+    1-D window of returns, normalized to [0, 1] by dividing by log2(n_bins)
+    (the maximum possible entropy for that many bins)."""
+    x = x[~np.isnan(x)]
+    if len(x) < n_bins:
+        return float("nan")
+
+    counts, _ = np.histogram(x, bins=n_bins)
+    probs = counts[counts > 0] / len(x)
+    entropy = -np.sum(probs * np.log2(probs))
+    return float(entropy / np.log2(n_bins))
+
+
+def shannon_entropy(
+    close: str | pl.Expr, window: int = 50, n_bins: int = 10
+) -> pl.Expr:
+    """Rolling Shannon entropy (normalized to [0, 1]) of the binned
+    distribution of log returns within each window.
+
+    A value near 1 means returns within the window are spread roughly
+    uniformly across bins — high "surprise"/complexity, consistent with a
+    noisy or regime-shifting market. A value near 0 means returns cluster
+    into a few bins — low complexity, consistent with a persistent trend or
+    a tightly range-bound market. Unlike the Hurst exponent (which measures
+    *directional persistence*), entropy measures *distributional
+    concentration* and doesn't care about sign or serial correlation, so the
+    two are complementary regime signals rather than redundant ones.
+
+    A window with fewer non-null returns than `n_bins` can't populate every
+    bin meaningfully and reports null rather than a misleadingly low entropy.
+    """
+    close = as_expr(close)
+    log_ret = log_return(close)
+
+    def _rolling_entropy(s: pl.Series) -> pl.Series:
+        x = s.to_numpy()
+        n = len(x)
+        out = np.full(n, np.nan)
+        if n < window:
+            return pl.Series(out, dtype=pl.Float64).fill_nan(None)
+        views = np.lib.stride_tricks.sliding_window_view(x, window)
+        for i in range(views.shape[0]):
+            out[window - 1 + i] = _shannon_entropy_from_window(views[i], n_bins)
+        return pl.Series(out, dtype=pl.Float64).fill_nan(None)
+
+    return log_ret.map_batches(_rolling_entropy, returns_scalar=False).alias(
+        f"shannon_entropy_{window}"
+    )
+
+
+def _approximate_entropy_from_window(
+    x: np.ndarray, m: int, r_frac: float
+) -> float:
+    """Approximate entropy (Pincus, 1991) of a single 1-D window.
+
+    O(window^2) per window (all pairwise embedded-vector distances) — the
+    textbook algorithm has no known sub-quadratic exact form, so this is
+    only affordable at the small-to-moderate window sizes (a few dozen bars)
+    typical for a "how predictable has this series been recently" gate, not
+    as a rolling feature computed over thousands of bars of history at once.
+    """
+    x = x[~np.isnan(x)]
+    n = len(x)
+    if n < m + 2:
+        return float("nan")
+
+    r = r_frac * np.std(x)
+    if r == 0:
+        return float("nan")
+
+    def _phi(m_: int) -> float:
+        n_vec = n - m_ + 1
+        # Embed into overlapping m_-length vectors via a sliding-window view
+        # (zero-copy), then compute all pairwise Chebyshev (max-norm)
+        # distances at once instead of a nested Python loop.
+        vectors = np.lib.stride_tricks.sliding_window_view(x, m_)[:n_vec]
+        dist = np.max(
+            np.abs(vectors[:, None, :] - vectors[None, :, :]), axis=-1
+        )
+        counts = np.sum(dist <= r, axis=1)
+        return float(np.mean(np.log(counts / n_vec)))
+
+    return float(_phi(m) - _phi(m + 1))
+
+
+def approximate_entropy(
+    close: str | pl.Expr, window: int = 30, m: int = 2, r_frac: float = 0.2
+) -> pl.Expr:
+    """Rolling approximate entropy (ApEn) of log returns within each window.
+
+    Measures how predictable consecutive `m`-length patterns are: low ApEn
+    means the series repeats similar short patterns (more regular/
+    predictable), high ApEn means patterns rarely recur (more random). `r`
+    (the similarity tolerance) is set as a fraction (`r_frac`, Pincus'
+    convention is ~0.2) of the window's own standard deviation, so it
+    self-scales with local volatility rather than needing an absolute
+    threshold tuned per instrument.
+
+    **Cost warning:** this is O(window^2) per row via `map_batches` (see
+    :func:`_approximate_entropy_from_window`) — the classic algorithm has no
+    faster exact form. Keep `window` in the tens, not hundreds, on large
+    frames; this is meant as a slow-moving regime gate, not a per-bar signal
+    computed over a huge lookback.
+    """
+    close = as_expr(close)
+    log_ret = log_return(close)
+
+    def _rolling_apen(s: pl.Series) -> pl.Series:
+        x = s.to_numpy()
+        n = len(x)
+        out = np.full(n, np.nan)
+        if n < window:
+            return pl.Series(out, dtype=pl.Float64).fill_nan(None)
+        views = np.lib.stride_tricks.sliding_window_view(x, window)
+        for i in range(views.shape[0]):
+            out[window - 1 + i] = _approximate_entropy_from_window(
+                views[i], m, r_frac
+            )
+        return pl.Series(out, dtype=pl.Float64).fill_nan(None)
+
+    return log_ret.map_batches(_rolling_apen, returns_scalar=False).alias(
+        f"approx_entropy_{window}"
+    )

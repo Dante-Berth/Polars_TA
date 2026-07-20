@@ -67,6 +67,8 @@ CASES = {
     "kvo": (volume.klinger_volume_oscillator("high", "low", "close", "volume"), 54),
     "ewma_volatility_21": (quant.ewma_volatility("close", window=21), 21),
     "lee_ready_trade_sign": (ms.lee_ready_trade_sign("close"), 0),
+    "shannon_entropy_50": (ms.shannon_entropy("close", window=50, n_bins=10), 49),
+    "approx_entropy_30": (ms.approximate_entropy("close", window=30), 29),
 }
 
 

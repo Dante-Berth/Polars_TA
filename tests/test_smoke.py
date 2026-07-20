@@ -212,6 +212,8 @@ PLAIN_CASES = {
     "rolling_cov": ms.rolling_cov("close", "open", window=20),
     "ewma_volatility": quant.ewma_volatility("close"),
     "lee_ready_trade_sign": ms.lee_ready_trade_sign("close"),
+    "shannon_entropy": ms.shannon_entropy("close", window=50, n_bins=10),
+    "approximate_entropy": ms.approximate_entropy("close", window=30),
 }
 
 
