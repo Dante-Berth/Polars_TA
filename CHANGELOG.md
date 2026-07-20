@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- New `polars_ta.calendar` module: `day_of_week`, `is_weekend`,
+  `hour_of_day`, `minute_of_day`, `time_since_midnight`, `month_of_year`,
+  `is_month_end`, and `bars_since_session_open`. The first module whose
+  input is a timestamp column rather than price/volume — deliberately does
+  not hardcode market-specific session windows (e.g. FX Asian/London/NY
+  hours), since those are UTC-hour conventions that vary by instrument.
+  New "Add calendar/seasonality features" how-to guide.
+
 - New microstructure/regime indicators: `microstructure.shannon_entropy`
   (normalized entropy of the binned return distribution — distributional
   concentration, not directional persistence) and

@@ -28,6 +28,10 @@
 
 ::: polars_ta.microstructure
 
+## Calendar / seasonality
+
+::: polars_ta.calendar
+
 ## Utilities
 
 ::: polars_ta.utils

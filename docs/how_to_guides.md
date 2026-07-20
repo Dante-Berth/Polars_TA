@@ -65,6 +65,45 @@ A cross-section with zero spread (every symbol tied) yields null rather than
 a divide-by-zero, and `cross_sectional_rank(..., pct=False)` returns a dense
 integer rank instead of a `[0, 1]` percentile.
 
+## Add calendar/seasonality features to a feature pipeline
+
+[`polars_ta.calendar`](api.md#polars_ta.calendar) is the one module that takes a
+timestamp column instead of price/volume. Convert an epoch column to a real
+`pl.Datetime` first with `pl.from_epoch`, then derive day-of-week, intraday
+position, and month-end features:
+
+```python
+import polars as pl
+from polars_ta import calendar
+
+df = pl.read_parquet("ohlcv.parquet")  # has an integer epoch-ms column
+df = df.with_columns(
+    pl.from_epoch("timestamp_open", time_unit="ms").alias("ts")
+)
+
+out = df.with_columns(
+    calendar.day_of_week("ts").alias("dow"),
+    calendar.hour_of_day("ts").alias("hour"),
+    calendar.is_month_end("ts").alias("is_month_end"),
+)
+```
+
+`calendar.bars_since_session_open` needs a session-boundary column (a date
+column for daily sessions, or your own session-id for intraday sessions with
+gaps) and is applied with `.over(...)` so the bar count restarts at zero for
+every session:
+
+```python
+out = df.with_columns(pl.col("ts").dt.date().alias("date")).with_columns(
+    calendar.bars_since_session_open("date").over("date").alias("bar_in_session")
+)
+```
+
+This module deliberately does not hardcode market-specific trading-session
+windows (e.g. FX Asian/London/NY hours) — those are UTC-hour conventions that
+vary by instrument. `hour_of_day` / `minute_of_day` give you the raw
+building blocks to define your own session boundaries per instrument.
+
 ## Run on data larger than memory (streaming)
 
 Pass `engine="streaming"` to `.collect()` — no changes to the indicator calls themselves:
