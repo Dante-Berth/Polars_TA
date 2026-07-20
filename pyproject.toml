@@ -49,6 +49,14 @@ polars_ta = ["py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+# Measure the package only — never the test suite itself. Whether test files
+# are traced otherwise depends on the install layout (editable vs. site), which
+# made the 100% gate pass locally but fail in CI; pinning the source here keeps
+# coverage identical everywhere.
+source = ["polars_ta"]
+omit = ["tests/*"]
+
 [tool.ruff]
 line-length = 88
 
