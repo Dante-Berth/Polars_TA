@@ -20,9 +20,11 @@ own session boundaries per instrument.
 
 import polars as pl
 
+from polars_ta._internal import as_expr
+
 
 def _as_datetime_expr(timestamp: str | pl.Expr) -> pl.Expr:
-    return pl.col(timestamp) if isinstance(timestamp, str) else timestamp
+    return as_expr(timestamp)
 
 
 def day_of_week(timestamp: str | pl.Expr) -> pl.Expr:
@@ -85,7 +87,7 @@ def bars_since_session_open(session_col: str | pl.Expr) -> pl.Expr:
 
         calendar.bars_since_session_open("date").over("date")
     """
-    session = pl.col(session_col) if isinstance(session_col, str) else session_col
+    session = as_expr(session_col)
     return pl.int_range(pl.len()).over(session).alias("bars_since_session_open")
 
 

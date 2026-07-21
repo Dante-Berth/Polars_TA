@@ -226,8 +226,8 @@ def vpin(
             typical scale of `volume` for the instrument).
         window: number of trailing buckets averaged into the VPIN estimate.
     """
-    close = pl.col(close) if isinstance(close, str) else close
-    volume = pl.col(volume) if isinstance(volume, str) else volume
+    close = as_expr(close)
+    volume = as_expr(volume)
 
     def _calc_vpin(struct_s: pl.Series) -> pl.Series:
         df = struct_s.struct.unnest()

@@ -3,6 +3,8 @@ import math
 import polars as pl
 import polars.selectors as cs
 
+from polars_ta._internal import as_expr
+
 
 class BaseIndicator:
     """Utility functions for the Polars TA library."""
@@ -13,7 +15,7 @@ class BaseIndicator:
         Check if fillna flag is True and fill gaps.
         Replaces inf/-inf with nulls before filling.
         """
-        expr = pl.col(expr) if isinstance(expr, str) else expr
+        expr = as_expr(expr)
 
         if not fillna:
             return expr
@@ -35,9 +37,9 @@ class BaseIndicator:
         high: pl.Expr | str, low: pl.Expr | str, prev_close: pl.Expr | str
     ) -> pl.Expr:
         """Calculate the True Range using horizontal aggregation."""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        prev_close = pl.col(prev_close) if isinstance(prev_close, str) else prev_close
+        high = as_expr(high)
+        low = as_expr(low)
+        prev_close = as_expr(prev_close)
 
         tr1 = high - low
         tr2 = (high - prev_close).abs()
@@ -48,14 +50,14 @@ class BaseIndicator:
     @staticmethod
     def sma(expr: pl.Expr | str, periods: int, fillna: bool = False) -> pl.Expr:
         """Simple Moving Average"""
-        expr = pl.col(expr) if isinstance(expr, str) else expr
+        expr = as_expr(expr)
         min_periods = 1 if fillna else periods
         return expr.rolling_mean(window_size=periods, min_samples=min_periods)
 
     @staticmethod
     def ema(expr: pl.Expr | str, periods: int, fillna: bool = False) -> pl.Expr:
         """Exponential Moving Average"""
-        expr = pl.col(expr) if isinstance(expr, str) else expr
+        expr = as_expr(expr)
         min_periods = 1 if fillna else periods
         return expr.ewm_mean(span=periods, adjust=False, min_samples=min_periods)
 
@@ -64,8 +66,8 @@ class BaseIndicator:
         expr1: pl.Expr | str, expr2: pl.Expr | str, function: str = "min"
     ) -> pl.Expr:
         """Find min or max value between two series for each index."""
-        expr1 = pl.col(expr1) if isinstance(expr1, str) else expr1
-        expr2 = pl.col(expr2) if isinstance(expr2, str) else expr2
+        expr1 = as_expr(expr1)
+        expr2 = as_expr(expr2)
 
         if function == "min":
             return pl.min_horizontal([expr1, expr2])

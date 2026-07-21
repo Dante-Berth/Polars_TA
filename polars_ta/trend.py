@@ -1,6 +1,7 @@
 import numpy as np
 import polars as pl
 
+from polars_ta._internal import as_expr
 from polars_ta.utils import BaseIndicator
 from polars_ta.volatility import VolatilityIndicators
 
@@ -16,7 +17,7 @@ class TrendIndicators:
         high: str | pl.Expr, window: int = 25, fillna: bool = False
     ) -> pl.Expr:
         """Aroon Up Channel"""
-        high = pl.col(high) if isinstance(high, str) else high
+        high = as_expr(high)
         min_periods = 1 if fillna else window + 1
 
         # rolling_map allows us to run the argmax logic on each window slice
@@ -32,7 +33,7 @@ class TrendIndicators:
         low: str | pl.Expr, window: int = 25, fillna: bool = False
     ) -> pl.Expr:
         """Aroon Down Channel"""
-        low = pl.col(low) if isinstance(low, str) else low
+        low = as_expr(low)
         min_periods = 1 if fillna else window + 1
 
         expr = low.rolling_map(
@@ -63,7 +64,7 @@ class TrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """MACD Line"""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         ema_fast = BaseIndicator.ema(close, window_fast, fillna)
         ema_slow = BaseIndicator.ema(close, window_slow, fillna)
         macd_line = ema_fast - ema_slow
@@ -123,7 +124,7 @@ class TrendIndicators:
         close: str | pl.Expr, window: int = 9, fillna: bool = False
     ) -> pl.Expr:
         """Weighted Moving Average (WMA)"""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
 
         # Pre-calculate weights array exactly as the original does
         weights = np.array(
@@ -142,7 +143,7 @@ class TrendIndicators:
     @staticmethod
     def trix(close: str | pl.Expr, window: int = 15, fillna: bool = False) -> pl.Expr:
         """Trix (TRIX) - Triple exponentially smoothed moving average percent change"""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
 
         ema1 = BaseIndicator.ema(close, window, fillna)
         ema2 = BaseIndicator.ema(ema1, window, fillna)
@@ -165,8 +166,8 @@ class TrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Mass Index (MI)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
+        high = as_expr(high)
+        low = as_expr(low)
 
         min_periods = 1 if fillna else window_slow
 
@@ -197,8 +198,8 @@ class TrendIndicators:
         high: str | pl.Expr, low: str | pl.Expr, window1: int = 9, fillna: bool = False
     ) -> pl.Expr:
         """Tenkan-sen (Conversion Line)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
+        high = as_expr(high)
+        low = as_expr(low)
 
         conv = TrendIndicators._ichimoku_line(high, low, window1, fillna)
         return BaseIndicator.check_fillna(conv, fillna, value=-1)
@@ -208,8 +209,8 @@ class TrendIndicators:
         high: str | pl.Expr, low: str | pl.Expr, window2: int = 26, fillna: bool = False
     ) -> pl.Expr:
         """Kijun-sen (Base Line)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
+        high = as_expr(high)
+        low = as_expr(low)
 
         base = TrendIndicators._ichimoku_line(high, low, window2, fillna)
         return BaseIndicator.check_fillna(base, fillna, value=-1)
@@ -224,8 +225,8 @@ class TrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Senkou Span A (Leading Span A)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
+        high = as_expr(high)
+        low = as_expr(low)
 
         conv = TrendIndicators._ichimoku_line(high, low, window1, fillna)
         base = TrendIndicators._ichimoku_line(high, low, window2, fillna)
@@ -246,8 +247,8 @@ class TrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Senkou Span B (Leading Span B)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
+        high = as_expr(high)
+        low = as_expr(low)
 
         # Span B uses the longest window (window3), shifted by window2 if visual
         spanb = TrendIndicators._ichimoku_line(high, low, window3, fillna)
@@ -274,7 +275,7 @@ class TrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Know Sure Thing (KST)"""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
 
         def _rocma(r: int, w: int) -> pl.Expr:
             """Helper to calculate the Smoothed Rate of Change"""
@@ -355,7 +356,7 @@ class ComplexTrendIndicators:
     @staticmethod
     def dpo(close: str | pl.Expr, window: int = 20, fillna: bool = False) -> pl.Expr:
         """Detrended Price Oscillator (DPO)"""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         # Shift back by (window / 2) + 1
@@ -379,9 +380,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Commodity Channel Index (CCI)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         typical_price = (high + low + close) / 3.0
@@ -409,9 +410,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """+VI (Positive Vortex Indicator)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         close_shift = close.shift(1).fill_null(close.mean())
@@ -432,9 +433,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """-VI (Negative Vortex Indicator)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         close_shift = close.shift(1).fill_null(close.mean())
@@ -502,9 +503,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """+DI"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
 
         pos_dm, _, tr = ComplexTrendIndicators._adx_components(high, low, close, window)
         # A flat market has zero true range; report 0 directional strength there
@@ -523,9 +524,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """-DI"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
 
         _, neg_dm, tr = ComplexTrendIndicators._adx_components(high, low, close, window)
         din = pl.when(tr == 0).then(0.0).otherwise(100 * neg_dm / tr)
@@ -540,9 +541,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Average Directional Index (ADX)"""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
 
         dip = ComplexTrendIndicators.adx_pos(high, low, close, window, fillna)
         din = ComplexTrendIndicators.adx_neg(high, low, close, window, fillna)
@@ -568,9 +569,9 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Parabolic SAR computed using map_batches for stateful execution."""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
 
         def _calc_psar(struct_s: pl.Series) -> pl.Series:
             """Internal NumPy loop to handle the FSM logic of PSAR."""
@@ -651,7 +652,7 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Schaff Trend Cycle (STC)"""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         min_periods_cycle = 1 if fillna else cycle
 
         # 1. MACD Line
@@ -701,7 +702,7 @@ class ComplexTrendIndicators:
         smoother than price itself, at the cost of the extra WMA passes
         needing `window + round(sqrt(window)) - 1` bars of warm-up.
         """
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         half_window = max(1, round(window / 2))
         sqrt_window = max(1, round(np.sqrt(window)))
 
@@ -727,9 +728,9 @@ class ComplexTrendIndicators:
         """SuperTrend line: an ATR-banded trend-following stop-and-reverse
         indicator, computed via `map_batches` for the stateful band-flip
         logic (the same style as `psar`)."""
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
 
         atr = VolatilityIndicators.average_true_range(high, low, close, window)
         hl2 = (high + low) / 2.0
@@ -787,8 +788,8 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Bull Power: high minus a 13-bar EMA of close."""
-        high = pl.col(high) if isinstance(high, str) else high
-        close = pl.col(close) if isinstance(close, str) else close
+        high = as_expr(high)
+        close = as_expr(close)
         ema = BaseIndicator.ema(close, window, fillna)
         bull = high - ema
         return BaseIndicator.check_fillna(bull, fillna, value=0)
@@ -802,8 +803,8 @@ class ComplexTrendIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         """Bear Power: low minus a 13-bar EMA of close."""
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
+        low = as_expr(low)
+        close = as_expr(close)
         ema = BaseIndicator.ema(close, window, fillna)
         bear = low - ema
         return BaseIndicator.check_fillna(bear, fillna, value=0)

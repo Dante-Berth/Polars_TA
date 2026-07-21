@@ -1,6 +1,7 @@
 import numpy as np
 import polars as pl
 
+from polars_ta._internal import as_expr
 from polars_ta.utils import BaseIndicator
 
 # (Assuming BaseIndicator is already defined from our previous steps)
@@ -12,7 +13,7 @@ class MomentumIndicators:
     # ---------------------------------------------------------
     @staticmethod
     def rsi(close: str | pl.Expr, window: int = 14, fillna: bool = False) -> pl.Expr:
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         diff = close.diff(1)
@@ -46,7 +47,7 @@ class MomentumIndicators:
         window_fast: int = 13,
         fillna: bool = False,
     ) -> pl.Expr:
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         min_periods_r = 1 if fillna else window_slow
         min_periods_s = 1 if fillna else window_fast
 
@@ -82,9 +83,9 @@ class MomentumIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
         )
 
         prev_close = close.shift(1)
@@ -130,9 +131,9 @@ class MomentumIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
         )
         min_periods = 1 if fillna else window
 
@@ -168,7 +169,7 @@ class MomentumIndicators:
         pow2: int = 30,
         fillna: bool = False,
     ) -> pl.Expr:
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         # 1. Calculate the Dynamic Smoothing Constant in Polars
@@ -226,7 +227,7 @@ class MomentumIndicators:
     # ---------------------------------------------------------
     @staticmethod
     def roc(close: str | pl.Expr, window: int = 12, fillna: bool = False) -> pl.Expr:
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         roc_val = ((close - close.shift(window)) / close.shift(window)) * 100.0
         return BaseIndicator.check_fillna(roc_val, fillna, value=0)
 
@@ -242,8 +243,8 @@ class MomentumIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
+            as_expr(high),
+            as_expr(low),
         )
         median_price = 0.5 * (high + low)
 
@@ -269,9 +270,9 @@ class MomentumIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
         )
         min_periods = 1 if fillna else lbp
 
@@ -288,7 +289,7 @@ class MomentumIndicators:
     def stochrsi(
         close: str | pl.Expr, window: int = 14, fillna: bool = False
     ) -> pl.Expr:
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         rsi_val = MomentumIndicators.rsi(close, window, fillna)
 
         lowest_low_rsi = rsi_val.rolling_min(
@@ -335,7 +336,7 @@ class MomentumIndicators:
         window_fast: int = 12,
         fillna: bool = False,
     ) -> pl.Expr:
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         ema_fast = BaseIndicator.ema(close, window_fast, fillna)
         ema_slow = BaseIndicator.ema(close, window_slow, fillna)
 
@@ -379,7 +380,7 @@ class MomentumIndicators:
         window_fast: int = 12,
         fillna: bool = False,
     ) -> pl.Expr:
-        volume = pl.col(volume) if isinstance(volume, str) else volume
+        volume = as_expr(volume)
         ema_fast = BaseIndicator.ema(volume, window_fast, fillna)
         ema_slow = BaseIndicator.ema(volume, window_slow, fillna)
 
@@ -420,7 +421,7 @@ class MomentumIndicators:
     def cmo(close: str | pl.Expr, window: int = 14, fillna: bool = False) -> pl.Expr:
         """Chande Momentum Oscillator: 100 * (sum(up) - sum(down)) / (sum(up)
         + sum(down)) over the window, unlike RSI's smoothed averages."""
-        close = pl.col(close) if isinstance(close, str) else close
+        close = as_expr(close)
         min_periods = 1 if fillna else window
 
         diff = close.diff(1)
@@ -458,8 +459,8 @@ class MomentumIndicators:
         series instead of the intended smooth oscillator. `map_batches`
         carries the two damped recursions; everything upstream is vectorized.
         """
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
+        high = as_expr(high)
+        low = as_expr(low)
         min_periods = 1 if fillna else window
 
         hl2 = (high + low) / 2.0

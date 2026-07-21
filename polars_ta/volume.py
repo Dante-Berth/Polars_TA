@@ -1,6 +1,7 @@
 import numpy as np
 import polars as pl
 
+from polars_ta._internal import as_expr
 from polars_ta.utils import BaseIndicator
 
 
@@ -17,10 +18,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
+            as_expr(volume),
         )
 
         # Avoid division by zero
@@ -40,8 +41,8 @@ class VolumeIndicators:
         close: str | pl.Expr, volume: str | pl.Expr, fillna: bool = False
     ) -> pl.Expr:
         close, volume = (
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(close),
+            as_expr(volume),
         )
 
         # Vectorized equivalent of np.where
@@ -63,10 +64,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
+            as_expr(volume),
         )
         min_periods = 1 if fillna else window
 
@@ -91,8 +92,8 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         close, volume = (
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(close),
+            as_expr(volume),
         )
         fi_series = (close - close.shift(1)) * volume
         fi = BaseIndicator.ema(fi_series, window, fillna)
@@ -110,9 +111,9 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, volume = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(high),
+            as_expr(low),
+            as_expr(volume),
         )
 
         emv = ((high.diff() + low.diff()) * (high - low)) / (2 * volume)
@@ -145,8 +146,8 @@ class VolumeIndicators:
         dropnans: bool = False,
     ) -> pl.Expr:
         close, volume = (
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(close),
+            as_expr(volume),
         )
 
         # pct_change is equivalent to (close / close.shift(1)) - 1
@@ -172,8 +173,8 @@ class VolumeIndicators:
         close: str | pl.Expr, volume: str | pl.Expr, fillna: bool = False
     ) -> pl.Expr:
         close, volume = (
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(close),
+            as_expr(volume),
         )
 
         pct_change = (close / close.shift(1)) - 1
@@ -198,10 +199,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
+            as_expr(volume),
         )
         min_periods = 1 if fillna else window
 
@@ -248,10 +249,10 @@ class VolumeIndicators:
         fillna: bool = False,
     ) -> pl.Expr:
         high, low, close, volume = (
-            (pl.col(high) if isinstance(high, str) else high),
-            (pl.col(low) if isinstance(low, str) else low),
-            (pl.col(close) if isinstance(close, str) else close),
-            (pl.col(volume) if isinstance(volume, str) else volume),
+            as_expr(high),
+            as_expr(low),
+            as_expr(close),
+            as_expr(volume),
         )
         min_periods = 1 if fillna else window
 
@@ -283,10 +284,10 @@ class VolumeIndicators:
         direction * daily-range-vs-3-day-range factor), EMA-smoothed at two
         speeds and differenced — a volume-based trend-confirmation oscillator.
         """
-        high = pl.col(high) if isinstance(high, str) else high
-        low = pl.col(low) if isinstance(low, str) else low
-        close = pl.col(close) if isinstance(close, str) else close
-        volume = pl.col(volume) if isinstance(volume, str) else volume
+        high = as_expr(high)
+        low = as_expr(low)
+        close = as_expr(close)
+        volume = as_expr(volume)
 
         hlc3 = (high + low + close) / 3.0
         trend = pl.when(hlc3 > hlc3.shift(1)).then(1.0).otherwise(-1.0)

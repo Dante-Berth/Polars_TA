@@ -76,10 +76,10 @@ def garman_klass_volatility(
     open_price: str, high: str, low: str, close: str, window: int = 20
 ) -> pl.Expr:
     o, h, lo, c = (
-        (pl.col(open_price) if isinstance(open_price, str) else open_price),
-        (pl.col(high) if isinstance(high, str) else high),
-        (pl.col(low) if isinstance(low, str) else low),
-        (pl.col(close) if isinstance(close, str) else close),
+        as_expr(open_price),
+        as_expr(high),
+        as_expr(low),
+        as_expr(close),
     )
     log_hl = (h / lo).log().pow(2)
     log_co = (c / o).log().pow(2)
@@ -88,7 +88,7 @@ def garman_klass_volatility(
 
 
 def rolling_z_score(close: str, window: int = 20) -> pl.Expr:
-    c = pl.col(close) if isinstance(close, str) else close
+    c = as_expr(close)
     rolling_mean = c.rolling_mean(window_size=window)
     rolling_std = c.rolling_std(window_size=window)
     safe_std = pl.when(rolling_std == 0).then(1.0).otherwise(rolling_std)
@@ -96,7 +96,7 @@ def rolling_z_score(close: str, window: int = 20) -> pl.Expr:
 
 
 def vol_adjusted_momentum(close: str, window: int = 20) -> pl.Expr:
-    c = pl.col(close) if isinstance(close, str) else close
+    c = as_expr(close)
     ret = (c / c.shift(window)) - 1.0
     daily_ret = c.pct_change()
     vol = daily_ret.rolling_std(window_size=window)
@@ -106,10 +106,10 @@ def vol_adjusted_momentum(close: str, window: int = 20) -> pl.Expr:
 
 def micro_price_proxy(high: str, low: str, close: str, volume: str) -> pl.Expr:
     h, lo, c, v = (
-        (pl.col(high) if isinstance(high, str) else high),
-        (pl.col(low) if isinstance(low, str) else low),
-        (pl.col(close) if isinstance(close, str) else close),
-        (pl.col(volume) if isinstance(volume, str) else volume),
+        as_expr(high),
+        as_expr(low),
+        as_expr(close),
+        as_expr(volume),
     )
     typical_price = (h + lo + c) / 3.0
     log_v = pl.when(v <= 1).then(1.0).otherwise(v.log())
@@ -120,7 +120,7 @@ def rolling_sharpe_ratio(
     close: str, window: int = 63, risk_free_rate: float = 0.0
 ) -> pl.Expr:
     """Annualized Rolling Sharpe Ratio (Assuming 252 trading days)"""
-    ret = (pl.col(close) if isinstance(close, str) else close).pct_change()
+    ret = as_expr(close).pct_change()
 
     # Assuming daily data, we annualize by multiplying by sqrt(252)
     rolling_mean = ret.rolling_mean(window_size=window) - (risk_free_rate / 252)
@@ -136,7 +136,7 @@ def rolling_sortino_ratio(
     close: str, window: int = 63, risk_free_rate: float = 0.0
 ) -> pl.Expr:
     """Annualized Rolling Sortino Ratio (Penalizes only downside volatility)"""
-    ret = (pl.col(close) if isinstance(close, str) else close).pct_change()
+    ret = as_expr(close).pct_change()
 
     downside_ret = pl.when(ret < 0).then(ret).otherwise(0.0)
 
@@ -151,7 +151,7 @@ def rolling_sortino_ratio(
 
 def historical_volatility(close: str, window: int = 21) -> pl.Expr:
     """Annualized Historical Volatility (Close-to-Close)"""
-    log_ret = log_return(pl.col(close) if isinstance(close, str) else close)
+    log_ret = log_return(as_expr(close))
 
     # Standard deviation of log returns * sqrt(252 trading days)
     hv = log_ret.rolling_std(window_size=window) * math.sqrt(252)
@@ -169,7 +169,7 @@ def ewma_volatility(close: str, window: int = 21, lambda_: float = 0.94) -> pl.E
     other volatility estimator here even though the EWM itself has infinite
     memory.
     """
-    log_ret = log_return(pl.col(close) if isinstance(close, str) else close)
+    log_ret = log_return(as_expr(close))
     sq_ret = log_ret.pow(2)
     variance = sq_ret.ewm_mean(alpha=1 - lambda_, adjust=False, min_samples=window)
     ewma_vol = variance.sqrt() * math.sqrt(252)
@@ -187,8 +187,8 @@ def parkinson_volatility(
     complements Garman-Klass and Yang-Zhang rather than replacing them.
     """
     h, lo = (
-        (pl.col(high) if isinstance(high, str) else high),
-        (pl.col(low) if isinstance(low, str) else low),
+        as_expr(high),
+        as_expr(low),
     )
     factor = 1.0 / (4.0 * math.log(2.0))
     park_var = (factor * (h / lo).log().pow(2)).rolling_mean(window_size=window)
@@ -213,10 +213,10 @@ def rogers_satchell_volatility(
     the natural mid-point of the OHLC-volatility family.
     """
     o, h, lo, c = (
-        (pl.col(open_price) if isinstance(open_price, str) else open_price),
-        (pl.col(high) if isinstance(high, str) else high),
-        (pl.col(low) if isinstance(low, str) else low),
-        (pl.col(close) if isinstance(close, str) else close),
+        as_expr(open_price),
+        as_expr(high),
+        as_expr(low),
+        as_expr(close),
     )
     log_ho = (h / o).log()
     log_hc = (h / c).log()
@@ -244,10 +244,10 @@ def yang_zhang_volatility(
     This is the volatility estimator of choice on professional vol desks
     when only OHLC bars (no tick data) are available.
     """
-    o = pl.col(open_price) if isinstance(open_price, str) else open_price
-    h = pl.col(high) if isinstance(high, str) else high
-    lo = pl.col(low) if isinstance(low, str) else low
-    c = pl.col(close) if isinstance(close, str) else close
+    o = as_expr(open_price)
+    h = as_expr(high)
+    lo = as_expr(low)
+    c = as_expr(close)
 
     log_ho = (h / o.shift(1)).log()
     log_lo_ = (lo / o).log()
@@ -291,7 +291,7 @@ def hurst_ribbon(
     approximation, which is fast enough to run at several scales at once
     and is the form used in production multi-scale regime detectors.
     """
-    ln_p = (pl.col(close) if isinstance(close, str) else close).log()
+    ln_p = as_expr(close).log()
     log_ret = ln_p.diff(1)
 
     h_exprs: dict[str, pl.Expr] = {}
@@ -315,7 +315,7 @@ def relative_volume(volume: str, window: int = 100) -> pl.Expr:
     Spikes in RVol often mark the start or end of a regime — a standard
     "is something happening right now" gate on execution/monitoring desks.
     """
-    v = pl.col(volume) if isinstance(volume, str) else volume
+    v = as_expr(volume)
     return (v / v.rolling_mean(window_size=window)).alias(f"rvol_{window}")
 
 
@@ -327,8 +327,8 @@ def volatility_z_score(high: str, low: str, window: int = 100) -> pl.Expr:
     or strategy switching on a volatility-regime shift.
     """
     hl_range = (
-        (pl.col(high) if isinstance(high, str) else high)
-        - (pl.col(low) if isinstance(low, str) else low)
+        as_expr(high)
+        - as_expr(low)
     ).rolling_mean(window_size=window)
     mean = hl_range.rolling_mean(window_size=window)
     std = hl_range.rolling_std(window_size=window)
@@ -354,7 +354,7 @@ def cross_sectional_zscore(value: str) -> pl.Expr:
     A cross-section with zero spread (all symbols tied) yields null rather
     than a divide-by-zero.
     """
-    v = pl.col(value) if isinstance(value, str) else value
+    v = as_expr(value)
     mean = v.mean()
     std = v.std()
     safe_std = pl.when(std == 0).then(None).otherwise(std)
@@ -369,7 +369,7 @@ def cross_sectional_rank(value: str, pct: bool = True) -> pl.Expr:
     `.over(timestamp_column)` on a long-format multi-asset frame to rank
     symbols against each other at each instant, not through time.
     """
-    v = pl.col(value) if isinstance(value, str) else value
+    v = as_expr(value)
     if pct:
         return v.rank(method="average") / v.count()
     return v.rank(method="dense")
@@ -377,8 +377,8 @@ def cross_sectional_rank(value: str, pct: bool = True) -> pl.Expr:
 
 def amihud_illiquidity(close: str, volume: str, window: int = 21) -> pl.Expr:
     """Rolling Amihud Illiquidity (Price impact per dollar traded)"""
-    c = pl.col(close) if isinstance(close, str) else close
-    v = pl.col(volume) if isinstance(volume, str) else volume
+    c = as_expr(close)
+    v = as_expr(volume)
 
     daily_ret_abs = c.pct_change().abs()
     dollar_volume = c * v
@@ -421,9 +421,9 @@ def regime_conditional_signal(
     without a regime reading), rather than silently falling back to either
     branch.
     """
-    regime_expr = pl.col(regime) if isinstance(regime, str) else regime
-    above = pl.col(signal_above) if isinstance(signal_above, str) else signal_above
-    below = pl.col(signal_below) if isinstance(signal_below, str) else signal_below
+    regime_expr = as_expr(regime)
+    above = as_expr(signal_above)
+    below = as_expr(signal_below)
 
     condition = regime_expr >= threshold if above_or_equal else regime_expr > threshold
     return (
