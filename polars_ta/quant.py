@@ -18,10 +18,8 @@ def _norm_ppf(alpha: float) -> float:
     ``z_alpha = sqrt(2) * erfinv(2*alpha - 1)``. Used for the Gaussian VaR
     quantile so no SciPy dependency is needed for a single scalar lookup.
     """
-    from math import erf  # noqa: F401  (kept for symmetry / clarity)
-
-    # Newton refinement on erf is overkill for one scalar; use a rational
-    # approximation (Acklam) accurate to ~1e-9 over the usable tail range.
+    # A rational approximation (Acklam) accurate to ~1e-9 over the usable tail
+    # range; avoids a SciPy dependency for what is a single scalar lookup.
     a = [
         -3.969683028665376e01,
         2.209460984245205e02,
