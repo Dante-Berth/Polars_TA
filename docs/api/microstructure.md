@@ -1,5 +1,7 @@
 # Microstructure
 
+![Price, Roll spread with Kyle's lambda, and the Hurst R/S regime line on BTCUSDT 5m](../assets/api/microstructure.png)
+
 **How the market is trading underneath the price** — liquidity, the cost of
 crossing the spread, whether order flow looks *informed*, and how fast a series
 reverts. These are standard on institutional desks and largely absent from

@@ -1,5 +1,7 @@
 # Momentum
 
+![RSI and Stochastic oscillators on BTCUSDT 5m price, with overbought/oversold guides](../assets/api/momentum.png)
+
 **Momentum indicators answer one question: is the current move *accelerating*
 or *running out of fuel*?** They're oscillators — bounded or centred measures
 of the *speed* of price change rather than its direction — so they shine at

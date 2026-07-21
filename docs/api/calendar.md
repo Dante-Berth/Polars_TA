@@ -1,5 +1,7 @@
 # Calendar / seasonality
 
+![Average absolute BTCUSDT return by hour of day, showing an intraday volatility peak around the US session](../assets/api/calendar.png)
+
 The one family whose input is a **timestamp**, not price or volume. Markets have
 clocks: Monday behaves differently from Friday, the first hour differently from
 lunchtime, month-end differently from mid-month. These turn a datetime column

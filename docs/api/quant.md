@@ -1,5 +1,7 @@
 # Quant
 
+![Price, Yang-Zhang volatility with rolling drawdown, and the Hurst regime ribbon on BTCUSDT 5m](../assets/api/quant.png)
+
 The professional-desk layer: volatility *forecasting*, risk sizing, regime
 detection, and factor construction. Where the retail indicators help you *read a
 chart*, these help you *size a position*, *decide which strategy family fits the

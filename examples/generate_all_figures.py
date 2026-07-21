@@ -14,6 +14,7 @@ from pathlib import Path
 # Allow running from any working directory by importing the sibling scripts.
 sys.path.insert(0, str(Path(__file__).parent))
 
+from plot_api_family_figures import main as api_family_main  # noqa: E402
 from plot_classic_indicators import main as classic_main  # noqa: E402
 from plot_entropy import main as entropy_main  # noqa: E402
 from plot_liquidity import main as liquidity_main  # noqa: E402
@@ -32,6 +33,7 @@ FIGURES = {
     "new indicators": new_indicators_main,
     "entropy": entropy_main,
     "regime-conditional composite signal": regime_conditional_main,
+    "API reference family figures": api_family_main,
 }
 
 

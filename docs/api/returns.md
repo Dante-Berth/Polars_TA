@@ -1,5 +1,7 @@
 # Returns
 
+![Cumulative return and per-bar simple return on BTCUSDT 5m](../assets/api/returns.png)
+
 The plumbing every other calculation sits on: turning a price series into
 returns. Small on purpose — but getting the convention right (percent vs. log,
 period vs. cumulative) matters, because everything downstream inherits it.

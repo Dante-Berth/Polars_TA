@@ -1,5 +1,7 @@
 # Trend
 
+![Price with EMA/SMA, MACD, and ADX trend-strength on BTCUSDT 5m](../assets/api/trend.png)
+
 **Trend indicators answer: which way is price heading, and how strongly?**
 Where [momentum](momentum.md) measures speed, trend tools estimate *direction
 and persistence* — the smoothed path, its slope, and whether a directional move

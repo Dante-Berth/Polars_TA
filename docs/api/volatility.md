@@ -1,5 +1,7 @@
 # Volatility
 
+![Price with Bollinger band envelope and Average True Range on BTCUSDT 5m](../assets/api/volatility.png)
+
 **Volatility indicators answer: how much is price moving — and is that
 movement expanding or contracting?** They drive position sizing (risk more when
 quiet, less when wild), adaptive stops, and breakout detection (a volatility

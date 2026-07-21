@@ -1,5 +1,7 @@
 # Volume
 
+![Price, raw volume, and OBV with Money Flow Index on BTCUSDT 5m](../assets/api/volume.png)
+
 **Volume indicators answer: is the price move backed by real participation, or
 is it hollow?** Volume is the fuel behind price. These tools combine price and
 volume to reveal accumulation vs. distribution and to flag moves that lack
