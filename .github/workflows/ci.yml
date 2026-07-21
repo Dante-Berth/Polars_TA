@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -31,3 +31,23 @@ jobs:
         run: uv run pytest --cov=polars_ta --cov-report=term-missing --cov-fail-under=100
         env:
           NUMBA_DISABLE_JIT: "1"
+
+  test-jit:
+    # The `test` job disables the JIT so coverage can trace the VPIN kernel,
+    # which means the numba-compiled path never actually runs there. This job
+    # runs the suite with the JIT live (no coverage gate — JIT'd code can't be
+    # traced) so a numba-specific compilation break can't sail through green.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Test (numba JIT enabled)
+        run: uv run pytest
